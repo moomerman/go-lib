@@ -1,5 +1,6 @@
 # kvstore
-The kvstore package provides an interface to a kvstore and multiple implementations.
+The kvstore package provides an interface for operations on a KV store with
+multiple implementations.
 
 https://godoc.org/github.com/moomerman/go-lib/kvstore
 
