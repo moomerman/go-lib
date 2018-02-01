@@ -75,6 +75,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/yhat/wsutil"
+  packages = ["."]
+  revision = "1d66fa95c997864ba4d8479f56609620fe542928"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = ["acme","ed25519","ed25519/internal/edwards25519","ocsp"]
   revision = "1875d0a70c90e57f11972aefd42276df65e895b9"
@@ -112,6 +118,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fa4cf1a80e4daded830c34b6a890c691a1635094c8babe670325235b7829caf0"
+  inputs-digest = "5dfb31c7580a84972f737db97f040d25a5137071bcc38ccc4bcbe6c168261890"
   solver-name = "gps-cdcl"
   solver-version = 1
