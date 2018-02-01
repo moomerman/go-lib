@@ -3,6 +3,8 @@ The autocert package provides automatic SSL certificate issuance & renewal from
 LetsEncrypt (and any other ACME-based CA). It is intended to be used as a
 drop-in library for go http servers.
 
+[Documentation](https://godoc.org/github.com/moomerman/go-lib/autocert)
+
 The main motivation is to provide a closely-compatible `golang.org/x/crypto/acme/autocert`
 library replacement that also handles DNS verification and will work well in
 distributed environments.

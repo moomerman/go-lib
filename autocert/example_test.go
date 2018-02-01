@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"net/http"
 
-	"github.com/moomerman/autocert"
+	"github.com/moomerman/go-lib/autocert"
 	"github.com/moomerman/go-lib/kvstore/dir"
 )
 
