@@ -68,18 +68,6 @@
   revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/moomerman/autocert"
-  packages = ["."]
-  revision = "9363ebb0abfc0b3d5a45a115d98d3331a9c788a8"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/moomerman/go-certs"
-  packages = ["certs","certs/manager","certs/notifier","certs/store","certs/user"]
-  revision = "9363ebb0abfc0b3d5a45a115d98d3331a9c788a8"
-
-[[projects]]
   name = "github.com/xenolf/lego"
   packages = ["acme","providers/dns/dnsimple","providers/dns/dnsmadeeasy"]
   revision = "67c86d860a797ce2483f50d9174d4ed24984bef2"
@@ -95,7 +83,7 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = ["bpf","context","http2","http2/hpack","idna","internal/iana","internal/socket","internal/timeseries","ipv4","ipv6","lex/httplex","publicsuffix","trace"]
-  revision = "309822c5b9b9f80db67f016069a12628d94fad34"
+  revision = "d19327ad09a0acfc17c9de97813e81b669bb1c4a"
 
 [[projects]]
   branch = "master"
@@ -121,15 +109,9 @@
   revision = "aa2e30fdd1fe9dd3394119af66451ae790d50e0d"
   version = "v1.1.0"
 
-[[projects]]
-  branch = "v2"
-  name = "gopkg.in/yaml.v2"
-  packages = ["."]
-  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "68bf12e8960d45fb0604f82c8903d8472da63a3e162bbc71ad0cc1e172656c0f"
+  inputs-digest = "fa4cf1a80e4daded830c34b6a890c691a1635094c8babe670325235b7829caf0"
   solver-name = "gps-cdcl"
   solver-version = 1
