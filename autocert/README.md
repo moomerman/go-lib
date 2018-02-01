@@ -19,7 +19,7 @@ by the excellent `github.com/xenolf/lego` package.
 
 // Using kvstore dir.Store, could also use consul.Store or etcd.Store
 m := &autocert.Manager{
-  Cache:    dir.Store("secret-dir"),
+  Store:    dir.Store("secret-dir"),
   Notifier: autocert.SlackNotifier("https://....."),
   Prompt:   autocert.AcceptTOS,
   Email:    "user@example.com",
