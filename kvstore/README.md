@@ -2,7 +2,7 @@
 The kvstore package provides an interface for operations on a KV store with
 multiple implementations.
 
-https://godoc.org/github.com/moomerman/go-lib/kvstore
+[Documentation](https://godoc.org/github.com/moomerman/go-lib/kvstore)
 
 ## Interface
 
@@ -16,6 +16,6 @@ type Store interface {
 
 ## Implementations
 
-* Dir - https://godoc.org/github.com/moomerman/go-lib/kvstore/dir
-* Consul - https://godoc.org/github.com/moomerman/go-lib/kvstore/consul
-* Etcd - https://godoc.org/github.com/moomerman/go-lib/kvstore/etcd
+* [Dir](https://godoc.org/github.com/moomerman/go-lib/kvstore/dir)
+* [Consul](https://godoc.org/github.com/moomerman/go-lib/kvstore/consul)
+* [Etcd](https://godoc.org/github.com/moomerman/go-lib/kvstore/etcd)
