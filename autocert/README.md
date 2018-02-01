@@ -5,13 +5,13 @@ drop-in library for go http servers.
 
 [Documentation](https://godoc.org/github.com/moomerman/go-lib/autocert)
 
-The main motivation is to provide a closely-compatible `golang.org/x/crypto/acme/autocert`
+The main motivation is to provide a closely-compatible [golang.org/x/crypto/acme/autocert](https://golang.org/x/crypto/acme/autocert)
 library replacement that also handles DNS verification and will work well in
 distributed environments.
 
-The API is based strongly on the `golang.org/x/crypto/acme/autocert` package
+The API is based strongly on the [golang.org/x/crypto/acme/autocert](https://golang.org/x/crypto/acme/autocert) package
 so it can provide an easy transition.  The ACME implementation is provided
-by the excellent `github.com/xenolf/lego` package.
+by the excellent [github.com/xenolf/lego](https://github.com/xenolf/lego) package.
 
 ## Usage
 
