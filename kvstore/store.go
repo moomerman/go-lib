@@ -5,7 +5,7 @@ import (
 )
 
 // ErrCacheMiss is returned when a key is not found in the store
-var ErrCacheMiss = errors.New("autocert: cache miss")
+var ErrCacheMiss = errors.New("kvstore: cache miss")
 
 // Store is used by Manager to store and retrieve data
 type Store interface {
