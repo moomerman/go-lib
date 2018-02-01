@@ -10,8 +10,8 @@ import (
 
 func ExampleManager() {
 	m := &autocert.Manager{
-		Store:    dir.Store("secret-dir"),
-		Notifier: autocert.SlackNotifier("https://....."),
+		Store:    dir.Store("secret-dir"), // or consul.Store, etcd.Store
+		Notifier: autocert.SlackNotifier("https://hooks.slack.com/services/..."),
 		Prompt:   autocert.AcceptTOS,
 		Email:    "user@example.com",
 	}

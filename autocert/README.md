@@ -17,10 +17,9 @@ by the excellent [github.com/xenolf/lego](https://github.com/xenolf/lego) packag
 
 ```go
 
-// Using kvstore dir.Store, could also use consul.Store or etcd.Store
 m := &autocert.Manager{
-  Store:    dir.Store("secret-dir"),
-  Notifier: autocert.SlackNotifier("https://....."),
+  Store:    dir.Store("secret-dir"), // or consul.Store, etcd.Store
+  Notifier: autocert.SlackNotifier("https://hooks.slack.com/services/..."),
   Prompt:   autocert.AcceptTOS,
   Email:    "user@example.com",
 }
