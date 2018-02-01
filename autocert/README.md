@@ -38,13 +38,12 @@ m.Add(&autocert.Request{
 })
 
 go http.ListenAndServe(":http", m.HTTPHandler(nil))
+// go m.Monitor() // optionally renew certificates in the background
 s := &http.Server{
   Addr:      ":https",
   TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
 }
 s.ListenAndServeTLS("", "")
 
-// optionally monitor & renew certificates in the background
-go m.Monitor()
 ```
 
