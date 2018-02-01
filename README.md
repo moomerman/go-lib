@@ -6,4 +6,4 @@ A collection of useful reusable go packages
 * [kvstore](https://github.com/moomerman/go-lib/tree/master/kvstore) - an interface for operations on a KV store with multiple implementations
 
 * [rproxy](https://github.com/moomerman/go-lib/tree/master/rproxy) - a http.ReverseProxy that adds support for Host override,
-websockets and SSE.
+websockets and SSE
