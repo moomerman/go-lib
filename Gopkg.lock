@@ -8,6 +8,12 @@
   version = "v3.3.0"
 
 [[projects]]
+  name = "github.com/dnsimple/dnsimple-go"
+  packages = ["dnsimple"]
+  revision = "4618db489ff90331782dd0a6cf3aa0de68415355"
+  version = "v0.16.0"
+
+[[projects]]
   name = "github.com/gogo/protobuf"
   packages = ["gogoproto","proto","protoc-gen-gogo/descriptor"]
   revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
@@ -18,6 +24,12 @@
   packages = ["proto","ptypes","ptypes/any","ptypes/duration","ptypes/timestamp"]
   revision = "925541529c1fa6821df4e44ce2723319eb2be768"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/google/go-querystring"
+  packages = ["query"]
+  revision = "53e6ce116135b80d037921a7fdd5138cf32d7a8a"
 
 [[projects]]
   name = "github.com/hashicorp/consul"
@@ -44,6 +56,12 @@
   version = "v0.8.1"
 
 [[projects]]
+  name = "github.com/miekg/dns"
+  packages = ["."]
+  revision = "5364553f1ee9cddc7ac8b62dce148309c386695b"
+  version = "v1.0.4"
+
+[[projects]]
   branch = "master"
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
@@ -51,8 +69,32 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/moomerman/autocert"
+  packages = ["."]
+  revision = "9363ebb0abfc0b3d5a45a115d98d3331a9c788a8"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/moomerman/go-certs"
+  packages = ["certs","certs/manager","certs/notifier","certs/store","certs/user"]
+  revision = "9363ebb0abfc0b3d5a45a115d98d3331a9c788a8"
+
+[[projects]]
+  name = "github.com/xenolf/lego"
+  packages = ["acme","providers/dns/dnsimple","providers/dns/dnsmadeeasy"]
+  revision = "67c86d860a797ce2483f50d9174d4ed24984bef2"
+  version = "v0.4.1"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/crypto"
+  packages = ["acme","ed25519","ed25519/internal/edwards25519","ocsp"]
+  revision = "1875d0a70c90e57f11972aefd42276df65e895b9"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
+  packages = ["bpf","context","http2","http2/hpack","idna","internal/iana","internal/socket","internal/timeseries","ipv4","ipv6","lex/httplex","publicsuffix","trace"]
   revision = "309822c5b9b9f80db67f016069a12628d94fad34"
 
 [[projects]]
@@ -73,9 +115,21 @@
   revision = "6b51017f791ae1cfbec89c52efdf444b13b550ef"
   version = "v1.9.2"
 
+[[projects]]
+  name = "gopkg.in/square/go-jose.v1"
+  packages = [".","cipher","json"]
+  revision = "aa2e30fdd1fe9dd3394119af66451ae790d50e0d"
+  version = "v1.1.0"
+
+[[projects]]
+  branch = "v2"
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d8c59a5646ac4bf8dd97a40f16b4d26aad7f6b0b038e51a67f868018c8a6bc3c"
+  inputs-digest = "68bf12e8960d45fb0604f82c8903d8472da63a3e162bbc71ad0cc1e172656c0f"
   solver-name = "gps-cdcl"
   solver-version = 1
