@@ -8,27 +8,27 @@ import (
 
 // User implements the required interface for acme
 type User struct {
-	Email        string
-	Registration *acme.RegistrationResource
-	key          crypto.PrivateKey
+	email        string
+	registration *acme.RegistrationResource
+	privateKey   crypto.PrivateKey
 }
 
 // GetEmail returns the user email
 func (u *User) GetEmail() string {
-	return u.Email
+	return u.email
 }
 
 // GetRegistration returns the user registration
 func (u *User) GetRegistration() *acme.RegistrationResource {
-	return u.Registration
+	return u.registration
+}
+
+// SetRegistration sets the user registration
+func (u *User) SetRegistration(reg *acme.RegistrationResource) {
+	u.registration = reg
 }
 
 // GetPrivateKey returns the user privat key
 func (u *User) GetPrivateKey() crypto.PrivateKey {
-	return u.key
-}
-
-// SetKey sets the private key for the user
-func (u *User) SetKey(key crypto.PrivateKey) {
-	u.key = key
+	return u.privateKey
 }

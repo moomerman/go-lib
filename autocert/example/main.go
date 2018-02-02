@@ -2,46 +2,40 @@ package main
 
 import (
 	"crypto/tls"
-	"log"
 	"net/http"
 
 	"github.com/moomerman/go-lib/autocert"
+	"github.com/moomerman/go-lib/kvstore/dir"
 )
 
 func main() {
 
 	m := &autocert.Manager{
 		Endpoint: "https://acme-staging.api.letsencrypt.org/directory",
-		Cache:    autocert.DirCache("secret-dir"),
-		Notifier: autocert.SlackNotifier("https://....."),
+		Store:    dir.Store("secret-dir"), // or consul.Store, etcd.Store
+		Notifier: autocert.SlackNotifier("https://hooks.slack.com/services/..."),
 		Prompt:   autocert.AcceptTOS,
 		Email:    "user@example.com",
 	}
 
 	// HTTP verification
 	m.Add(&autocert.Request{
-		Hosts: []string{"example.com", "www.example.com"},
+		Hosts: []string{"example.dev", "www.example.dev"},
 	})
 
 	// DNS verification
 	m.Add(&autocert.Request{
-		Hosts:           []string{"example.com"},
+		Hosts:           []string{"dns.example.dev"},
 		DNSProviderName: autocert.DNSimpleProvider,
 		DNSCredentials:  []string{"API_KEY"},
 	})
 
-	go func() {
-		if err := http.ListenAndServe(":8080", m.HTTPHandler(nil)); err != http.ErrServerClosed {
-			log.Fatal("http server exited with error: ", err)
-		}
-	}()
-
+	go http.ListenAndServe(":8080", m.HTTPHandler(nil))
+	// m.Run() // optional blocking call to ensure all certificates are issued before starting https server
+	// go m.Monitor() // optionally renew certificates in the background
 	s := &http.Server{
 		Addr:      ":4443",
 		TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
 	}
-
-	if err := s.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-		log.Fatal("https server exited with error: ", err)
-	}
+	s.ListenAndServeTLS("", "")
 }

@@ -37,6 +37,7 @@ m.Add(&autocert.Request{
 })
 
 go http.ListenAndServe(":http", m.HTTPHandler(nil))
+// m.Run() // optional blocking call to ensure all certificates are issued before starting https server
 // go m.Monitor() // optionally renew certificates in the background
 s := &http.Server{
   Addr:      ":https",

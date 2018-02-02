@@ -2,12 +2,19 @@ package autocert
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"sync"
@@ -17,13 +24,13 @@ import (
 	"github.com/xenolf/lego/acme"
 )
 
-// Manager is a stateful certificate manager built on top of acme.Client.
+// Manager is a stateful certificate manager.
 // It obtains and refreshes certificates automatically using "http-01",
 // and "dns-01" challenge types, as well as providing them
 // to a TLS server via tls.Config.
 //
-// You must specify a cache implementation, such as DirCache, ConsulCache or
-// EtcdCache to reuse obtained certificates across program restarts.
+// You must specify a store implementation, such as DirStore, ConsulStore or
+// EtcdStore to reuse obtained certificates across program restarts.
 // Otherwise your server is very likely to exceed the certificate
 // issuer's request rate limits.
 //
@@ -35,7 +42,7 @@ type Manager struct {
 	// Store optionally stores and retrieves previously-obtained certificates.
 	// If nil, certs will only be cached for the lifetime of the Manager.
 	//
-	// Manager passes the Cache certificates data encoded in PEM, with private/public
+	// Manager passes the Store certificates data encoded in PEM, with private/public
 	// parts combined in a single Cache.Put call, private key first.
 	Store kvstore.Store
 
@@ -66,6 +73,9 @@ type Manager struct {
 
 	requestsMu sync.Mutex
 	requests   []*Request
+
+	usersMu sync.Mutex
+	users   map[string]acme.User
 }
 
 // AcceptTOS is a Manager.Prompt function that always returns true to
@@ -146,12 +156,87 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 
 // createCert creates a certificate and caches it or returns an error
 func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
+	user, err := m.user(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("createCert", user)
 	return nil, nil
 }
 
 // renewCert renews a certificate and caches it or returns an error
 func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
 	return nil, nil
+}
+
+// user finds or creates a new user private key
+func (m *Manager) user(ctx context.Context, req *Request) (acme.User, error) {
+	email := m.Email // TODO: allow per-request Email addresses
+	m.usersMu.Lock()
+	defer m.usersMu.Unlock()
+	if m.users == nil {
+		m.users = map[string]acme.User{}
+	}
+	if m.users[email] != nil {
+		return m.users[email], nil
+	}
+	user, err := m.userFromStore(ctx, email)
+	if err != nil && err != kvstore.ErrCacheMiss {
+		return nil, err
+	}
+	if err == nil {
+		m.users[email] = user
+		return user, nil
+	}
+	user, err = m.createUser(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	m.users[email] = user
+	return user, nil
+}
+
+func (m *Manager) userFromStore(ctx context.Context, email string) (acme.User, error) {
+	data, err := m.Store.Get(m.userCacheKey(email))
+	if err != nil {
+		return nil, err
+	}
+	privateKey, err := unmarshalPrivateKey(data)
+	if err != nil {
+		return nil, err
+	}
+	return &User{email: email, privateKey: privateKey}, nil
+}
+
+func (m *Manager) createUser(ctx context.Context, email string) (acme.User, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	user := &User{email: email, privateKey: privateKey}
+
+	client, err := acme.NewClient(m.Endpoint, user, acme.RSA2048)
+	if err != nil {
+		return nil, err
+	}
+	reg, err := client.Register()
+	if err != nil {
+		return nil, err
+	}
+	user.SetRegistration(reg)
+	err = client.AgreeToTOS()
+	if err != nil {
+		return nil, err
+	}
+	data, err := marshalPrivateKey(user.GetPrivateKey())
+	if err != nil {
+		return nil, err
+	}
+	err = m.Store.Put(m.userCacheKey(email), data)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 func (m *Manager) expiring(cert *tls.Certificate) bool {
@@ -194,11 +279,16 @@ func (m *Manager) getPendingHTTPChallenge(host string) (string, error) {
 }
 
 func (m *Manager) cacheKeyPrefix() string {
-	return path.Join("autocert", m.Endpoint)
+	url, _ := url.Parse(m.Endpoint)
+	return path.Join("autocert", url.Host)
 }
 
 func (m *Manager) certCacheKey(req *Request) string {
 	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".crt")
+}
+
+func (m *Manager) userCacheKey(email string) string {
+	return path.Join(m.cacheKeyPrefix(), email+".key")
 }
 
 func handleHTTPRedirect(w http.ResponseWriter, r *http.Request) {
@@ -216,4 +306,34 @@ func stripPort(hostport string) string {
 		return hostport
 	}
 	return net.JoinHostPort(host, "443")
+}
+
+func marshalPrivateKey(key crypto.PrivateKey) ([]byte, error) {
+	var pemType string
+	var keyBytes []byte
+	switch key := key.(type) {
+	case *ecdsa.PrivateKey:
+		var err error
+		pemType = "EC"
+		keyBytes, err = x509.MarshalECPrivateKey(key)
+		if err != nil {
+			return nil, err
+		}
+	case *rsa.PrivateKey:
+		pemType = "RSA"
+		keyBytes = x509.MarshalPKCS1PrivateKey(key)
+	}
+	pemKey := pem.Block{Type: pemType + " PRIVATE KEY", Bytes: keyBytes}
+	return pem.EncodeToMemory(&pemKey), nil
+}
+
+func unmarshalPrivateKey(keyBytes []byte) (crypto.PrivateKey, error) {
+	keyBlock, _ := pem.Decode(keyBytes)
+	switch keyBlock.Type {
+	case "RSA PRIVATE KEY":
+		return x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	case "EC PRIVATE KEY":
+		return x509.ParseECPrivateKey(keyBlock.Bytes)
+	}
+	return nil, errors.New("unknown private key type")
 }
