@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -206,6 +207,11 @@ func (m *Manager) userFromStore(ctx context.Context, email string) (acme.User, e
 }
 
 func (m *Manager) createUser(ctx context.Context, email string) (acme.User, error) {
+	if err := m.getLock(email); err != nil {
+		return nil, err
+	}
+	defer m.releaseLock(email)
+	time.Sleep(20 * time.Second)
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
@@ -225,6 +231,8 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 		if err := client.AgreeToTOS(); err != nil {
 			return nil, err
 		}
+	} else {
+		return nil, errors.New("Terms of Service were rejected")
 	}
 	data, err := marshalPrivateKey(user.GetPrivateKey())
 	if err != nil {
@@ -282,11 +290,42 @@ func (m *Manager) cacheKeyPrefix() string {
 }
 
 func (m *Manager) certCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".crt")
+	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".pem")
 }
 
 func (m *Manager) userCacheKey(email string) string {
 	return path.Join(m.cacheKeyPrefix(), email+".key")
+}
+
+func (m *Manager) getLock(key string) error {
+	key = path.Join(m.cacheKeyPrefix(), key+".lock")
+	hostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	data, err := m.Store.Get(key)
+	if err != nil && err != kvstore.ErrCacheMiss {
+		return err
+	}
+	if data != nil && string(data) != hostname {
+		return errors.New("unable to obtain lock, owned by: " + string(data))
+	}
+	if err := m.Store.Put(key, []byte(hostname)); err != nil {
+		return err
+	}
+	data, err = m.Store.Get(key)
+	if err != nil && err != kvstore.ErrCacheMiss {
+		return err
+	}
+	if data != nil && string(data) != hostname {
+		return errors.New("unable to obtain lock, owned by: " + string(data))
+	}
+	return nil
+}
+
+func (m *Manager) releaseLock(key string) error {
+	key = path.Join(m.cacheKeyPrefix(), key+".lock")
+	return m.Store.Delete(key)
 }
 
 func handleHTTPRedirect(w http.ResponseWriter, r *http.Request) {
