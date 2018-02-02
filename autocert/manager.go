@@ -170,6 +170,19 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 }
 
 func (m *Manager) certFromStore(ctx context.Context, req *Request) (*tls.Certificate, error) {
+	resource, err := m.certificateResourceFromStore(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	cert, err := tls.X509KeyPair(resource.Certificate, resource.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return &cert, nil
+}
+
+func (m *Manager) certificateResourceFromStore(ctx context.Context, req *Request) (*acme.CertificateResource, error) {
 	certData, err := m.Store.Get(m.certCacheKey(req))
 	if err != nil {
 		return nil, err
@@ -178,11 +191,31 @@ func (m *Manager) certFromStore(ctx context.Context, req *Request) (*tls.Certifi
 	if err != nil {
 		return nil, err
 	}
-	cert, err := tls.X509KeyPair(certData, pkData)
+	metaData, err := m.Store.Get(m.certMetaCacheKey(req))
 	if err != nil {
 		return nil, err
 	}
-	return &cert, nil
+	resource := &acme.CertificateResource{}
+	if err := json.Unmarshal(metaData, resource); err != nil {
+		return nil, err
+	}
+	resource.Certificate = certData
+	resource.PrivateKey = pkData
+	return resource, nil
+}
+
+func (m *Manager) putCertificateResourceInStore(ctd context.Context, req *Request, resource *acme.CertificateResource) error {
+	meta, err := json.MarshalIndent(resource, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := m.Store.Put(m.certCacheKey(req), resource.Certificate); err != nil {
+		return err
+	}
+	if err := m.Store.Put(m.certPKCacheKey(req), resource.PrivateKey); err != nil {
+		return err
+	}
+	return m.Store.Put(m.certMetaCacheKey(req), meta)
 }
 
 // createCert creates a certificate and stores it or returns an error
@@ -205,17 +238,7 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 		json, _ := json.MarshalIndent(errs, "", "  ")
 		return nil, errors.New(string(json))
 	}
-	meta, err := json.MarshalIndent(resource, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	if err := m.Store.Put(m.certCacheKey(req), resource.Certificate); err != nil {
-		return nil, err
-	}
-	if err := m.Store.Put(m.certPKCacheKey(req), resource.PrivateKey); err != nil {
-		return nil, err
-	}
-	if err := m.Store.Put(m.certMetaCacheKey(req), meta); err != nil {
+	if err := m.putCertificateResourceInStore(ctx, req, &resource); err != nil {
 		return nil, err
 	}
 	cert, err := tls.X509KeyPair(resource.Certificate, resource.PrivateKey)
@@ -227,8 +250,35 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 
 // renewCert renews a certificate and stores it or returns an error
 func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
-	log.Println("renewCert")
-	return nil, nil
+	if err := m.getLock(req.Hosts[0]); err != nil {
+		return nil, err
+	}
+	defer m.releaseLock(req.Hosts[0])
+	user, err := m.user(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	client, err := m.client(ctx, req, user)
+	if err != nil {
+		return nil, err
+	}
+	resource, err := m.certificateResourceFromStore(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	newResource, err := client.RenewCertificate(*resource, true, false)
+	if err != nil {
+		log.Println("[autocert] error renewing certificate", err)
+		return nil, err
+	}
+	if err := m.putCertificateResourceInStore(ctx, req, &newResource); err != nil {
+		return nil, err
+	}
+	cert, err := tls.X509KeyPair(newResource.Certificate, newResource.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return &cert, nil
 }
 
 func (m *Manager) client(ctx context.Context, req *Request, user acme.User) (*acme.Client, error) {
@@ -330,7 +380,7 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 			return nil, err
 		}
 	} else {
-		return nil, errors.New("Terms of Service were rejected")
+		return nil, errors.New("terms of service were rejected")
 	}
 	data, err := marshalPrivateKey(user.GetPrivateKey())
 	if err != nil {
@@ -351,7 +401,7 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 }
 
 func (m *Manager) expiring(cert *tls.Certificate) bool {
-	expiry, err := acme.GetPEMCertExpiration(cert.Certificate[0])
+	expiry, err := acme.GetPEMCertExpiration(cert.Certificate[1])
 	if err != nil {
 		return false
 	}
@@ -395,23 +445,23 @@ func (m *Manager) cacheKeyPrefix() string {
 }
 
 func (m *Manager) certCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".crt")
+	return path.Join(m.cacheKeyPrefix(), req.Hosts[0], req.Hosts[0]+".crt")
 }
 
 func (m *Manager) certPKCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".key")
+	return path.Join(m.cacheKeyPrefix(), req.Hosts[0], req.Hosts[0]+".key")
 }
 
 func (m *Manager) certMetaCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".json")
+	return path.Join(m.cacheKeyPrefix(), req.Hosts[0], req.Hosts[0]+".json")
 }
 
 func (m *Manager) userCacheKey(email string) string {
-	return path.Join(m.cacheKeyPrefix(), email+".key")
+	return path.Join(m.cacheKeyPrefix(), email, email+".key")
 }
 
 func (m *Manager) userAccountCacheKey(email string) string {
-	return path.Join(m.cacheKeyPrefix(), email+".json")
+	return path.Join(m.cacheKeyPrefix(), email, email+".json")
 }
 
 func (m *Manager) getLock(key string) error {
