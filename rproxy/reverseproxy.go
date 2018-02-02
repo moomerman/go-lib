@@ -59,8 +59,8 @@ func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 	}, nil
 }
 
-// Proxy determines whether to proxy a HTTP request or a WS one
-func (p *ReverseProxy) Proxy(w http.ResponseWriter, r *http.Request) {
+// SertHTTP determines whether to proxy a HTTP request or a WS one
+func (p *ReverseProxy) SertHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.TLS != nil {
 		r.Header.Set("x-forwarded-proto", "https")
 	} else {
