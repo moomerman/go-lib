@@ -18,11 +18,7 @@ type Request struct {
 
 	clientMu sync.Mutex
 	client   *acme.Client
-}
 
-func (r *Request) provider() (acme.ChallengeProvider, error) {
-	if r.DNSProviderName != "" {
-		return GetDNSProvider(r.DNSProviderName, r.DNSCredentials)
-	}
-	return &HTTPProvider{Request: r}, nil
+	providerMu sync.Mutex
+	provider   acme.ChallengeProvider
 }

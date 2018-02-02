@@ -103,14 +103,14 @@ func (m *Manager) HTTPHandler(fallback http.Handler) http.Handler {
 			return
 		}
 		token := path.Base(r.URL.Path)
-		auth, err := m.getPendingHTTPChallenge(r.Host)
+		auth, err := m.Store.Get(m.certChallengeCacheKey(r.Host))
 		if err != nil {
 			log.Println("[autocert]", "HTTPHandler", r.Host, r.URL.Path, token, err)
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 
-		if !strings.HasPrefix(auth, token) {
+		if !strings.HasPrefix(string(auth), token) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
@@ -220,6 +220,7 @@ func (m *Manager) putCertificateResourceInStore(ctd context.Context, req *Reques
 
 // createCert creates a certificate and stores it or returns an error
 func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
+	log.Println("[autocert] creating certificate", req.Hosts)
 	if err := m.getLock(req.Hosts[0]); err != nil {
 		return nil, err
 	}
@@ -250,6 +251,7 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 
 // renewCert renews a certificate and stores it or returns an error
 func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
+	log.Println("[autocert] renewing certificate", req.Hosts)
 	if err := m.getLock(req.Hosts[0]); err != nil {
 		return nil, err
 	}
@@ -291,7 +293,7 @@ func (m *Manager) client(ctx context.Context, req *Request, user acme.User) (*ac
 	if err != nil {
 		return nil, err
 	}
-	provider, err := req.provider()
+	provider, err := m.provider(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -356,6 +358,7 @@ func (m *Manager) userFromStore(ctx context.Context, email string) (acme.User, e
 }
 
 func (m *Manager) createUser(ctx context.Context, email string) (acme.User, error) {
+	log.Println("[autocert] creating user", email)
 	if err := m.getLock(email); err != nil {
 		return nil, err
 	}
@@ -434,11 +437,6 @@ func (m *Manager) renewBefore() time.Duration {
 	return 720 * time.Hour // 30 days
 }
 
-func (m *Manager) getPendingHTTPChallenge(host string) (string, error) {
-	// TODO: retrieve from Cache
-	return "", nil
-}
-
 func (m *Manager) cacheKeyPrefix() string {
 	url, _ := url.Parse(m.Endpoint)
 	return path.Join("autocert", url.Host)
@@ -454,6 +452,10 @@ func (m *Manager) certPKCacheKey(req *Request) string {
 
 func (m *Manager) certMetaCacheKey(req *Request) string {
 	return path.Join(m.cacheKeyPrefix(), req.Hosts[0], req.Hosts[0]+".json")
+}
+
+func (m *Manager) certChallengeCacheKey(host string) string {
+	return path.Join(m.cacheKeyPrefix(), "challenges", host+".auth")
 }
 
 func (m *Manager) userCacheKey(email string) string {
@@ -493,6 +495,24 @@ func (m *Manager) getLock(key string) error {
 func (m *Manager) releaseLock(key string) error {
 	key = path.Join(m.cacheKeyPrefix(), key+".lock")
 	return m.Store.Delete(key)
+}
+
+func (m *Manager) provider(ctx context.Context, req *Request) (acme.ChallengeProvider, error) {
+	req.providerMu.Lock()
+	defer req.providerMu.Unlock()
+	if req.provider != nil {
+		return req.provider, nil
+	}
+	if req.DNSProviderName != "" {
+		provider, err := GetDNSProvider(req.DNSProviderName, req.DNSCredentials)
+		if err != nil {
+			return nil, err
+		}
+		req.provider = provider
+		return provider, nil
+	}
+	req.provider = &HTTPProvider{Manager: m}
+	return req.provider, nil
 }
 
 func handleHTTPRedirect(w http.ResponseWriter, r *http.Request) {

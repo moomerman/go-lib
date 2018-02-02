@@ -44,19 +44,17 @@ func GetDNSProvider(name DNSProviderName, credentials []string) (acme.ChallengeP
 
 // HTTPProvider holds the Request
 type HTTPProvider struct {
-	Request *Request
+	Manager *Manager
 }
 
 // Present prepares the domain for verification
 func (p *HTTPProvider) Present(domain, token, keyAuth string) error {
-	log.Println("[certs]", "present", domain, token, keyAuth)
-	// p.Domain.SetChallenge(domain, keyAuth)
-	return nil
+	log.Println("[autocert]", "present", domain, token, keyAuth)
+	return p.Manager.Store.Put(p.Manager.certChallengeCacheKey(domain), []byte(keyAuth))
 }
 
 // CleanUp cleans up after domain verification
 func (p *HTTPProvider) CleanUp(domain, token, keyAuth string) error {
-	log.Println("[certs]", "cleanup", domain, token, keyAuth)
-	// p.Domain.RemoveChallenge(domain)
-	return nil
+	log.Println("[autocert]", "cleanup", domain, token, keyAuth)
+	return p.Manager.Store.Delete(p.Manager.certChallengeCacheKey(domain))
 }
