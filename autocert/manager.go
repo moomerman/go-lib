@@ -100,16 +100,13 @@ func (m *Manager) HTTPHandler(fallback http.Handler) http.Handler {
 			fallback.ServeHTTP(w, r)
 			return
 		}
-
 		token := path.Base(r.URL.Path)
-		log.Println("[go-certs]", "challenge", r.Host, r.URL.Path, token)
-
 		auth, err := m.getPendingHTTPChallenge(r.Host)
 		if err != nil {
+			log.Println("[autocert]", "HTTPHandler", r.Host, r.URL.Path, token, err)
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		log.Println("[go-certs]", "challenge", token, auth)
 
 		if !strings.HasPrefix(auth, token) {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -223,10 +220,11 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 	if err != nil {
 		return nil, err
 	}
-	user.SetRegistration(reg)
-	err = client.AgreeToTOS()
-	if err != nil {
-		return nil, err
+	user.registration = reg
+	if m.Prompt(reg.TosURL) {
+		if err := client.AgreeToTOS(); err != nil {
+			return nil, err
+		}
 	}
 	data, err := marshalPrivateKey(user.GetPrivateKey())
 	if err != nil {

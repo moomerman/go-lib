@@ -23,11 +23,6 @@ func (u *User) GetRegistration() *acme.RegistrationResource {
 	return u.registration
 }
 
-// SetRegistration sets the user registration
-func (u *User) SetRegistration(reg *acme.RegistrationResource) {
-	u.registration = reg
-}
-
 // GetPrivateKey returns the user privat key
 func (u *User) GetPrivateKey() crypto.PrivateKey {
 	return u.privateKey
