@@ -20,18 +20,9 @@ type ReverseProxy struct {
 }
 
 // New returns a new multiproxy
-func New(targetURL string, hostname string) (*ReverseProxy, error) {
-	target, err := url.Parse(targetURL)
-	if err != nil {
-		return nil, err
-	}
-
+func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 	targetQuery := target.RawQuery
-
 	director := func(req *http.Request) {
-		if hostname != "" {
-			req.Host = hostname
-		}
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.URL.Path = singleJoiningSlash(target.Path, req.URL.Path)
