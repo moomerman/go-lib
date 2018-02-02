@@ -2,6 +2,7 @@ package autocert
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/xenolf/lego/acme"
 	"github.com/xenolf/lego/providers/dns/dnsimple"
@@ -39,4 +40,23 @@ func GetDNSProvider(name DNSProviderName, credentials []string) (acme.ChallengeP
 	}
 
 	return provider, err
+}
+
+// HTTPProvider holds the Request
+type HTTPProvider struct {
+	Request *Request
+}
+
+// Present prepares the domain for verification
+func (p *HTTPProvider) Present(domain, token, keyAuth string) error {
+	log.Println("[certs]", "present", domain, token, keyAuth)
+	// p.Domain.SetChallenge(domain, keyAuth)
+	return nil
+}
+
+// CleanUp cleans up after domain verification
+func (p *HTTPProvider) CleanUp(domain, token, keyAuth string) error {
+	log.Println("[certs]", "cleanup", domain, token, keyAuth)
+	// p.Domain.RemoveChallenge(domain)
+	return nil
 }

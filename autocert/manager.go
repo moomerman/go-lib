@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -136,35 +137,123 @@ func (m *Manager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, 
 func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, error) {
 	req.certificateMu.Lock()
 	defer req.certificateMu.Unlock()
-
 	if req.certificate != nil {
 		if m.expiring(req.certificate) {
-			return m.renewCert(ctx, req)
+			cert, err := m.renewCert(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			req.certificate = cert
 		}
 		return req.certificate, nil
 	}
-
-	cached, err := m.Store.Get(m.certCacheKey(req))
-	if err != nil {
-		return m.createCert(ctx, req)
+	cert, err := m.certFromStore(ctx, req)
+	if err != nil && err != kvstore.ErrCacheMiss {
+		return nil, err
 	}
-	fmt.Println(cached)
-	return nil, nil
+	if err == nil {
+		if m.expiring(cert) {
+			cert, err = m.renewCert(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+		}
+		req.certificate = cert
+		return cert, nil
+	}
+	cert, err = m.createCert(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	req.certificate = cert
+	return cert, nil
 }
 
-// createCert creates a certificate and caches it or returns an error
+func (m *Manager) certFromStore(ctx context.Context, req *Request) (*tls.Certificate, error) {
+	certData, err := m.Store.Get(m.certCacheKey(req))
+	if err != nil {
+		return nil, err
+	}
+	pkData, err := m.Store.Get(m.certPKCacheKey(req))
+	if err != nil {
+		return nil, err
+	}
+	cert, err := tls.X509KeyPair(certData, pkData)
+	if err != nil {
+		return nil, err
+	}
+	return &cert, nil
+}
+
+// createCert creates a certificate and stores it or returns an error
 func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
+	if err := m.getLock(req.Hosts[0]); err != nil {
+		return nil, err
+	}
+	defer m.releaseLock(req.Hosts[0])
 	user, err := m.user(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	log.Println("createCert", user)
+	client, err := m.client(ctx, req, user)
+	if err != nil {
+		return nil, err
+	}
+	resource, errs := client.ObtainCertificate(req.Hosts, true, nil, false)
+	if len(errs) > 0 {
+		log.Println("[autocert] error obtaining certificate", errs)
+		json, _ := json.MarshalIndent(errs, "", "  ")
+		return nil, errors.New(string(json))
+	}
+	meta, err := json.MarshalIndent(resource, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	if err := m.Store.Put(m.certCacheKey(req), resource.Certificate); err != nil {
+		return nil, err
+	}
+	if err := m.Store.Put(m.certPKCacheKey(req), resource.PrivateKey); err != nil {
+		return nil, err
+	}
+	if err := m.Store.Put(m.certMetaCacheKey(req), meta); err != nil {
+		return nil, err
+	}
+	cert, err := tls.X509KeyPair(resource.Certificate, resource.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return &cert, nil
+}
+
+// renewCert renews a certificate and stores it or returns an error
+func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
+	log.Println("renewCert")
 	return nil, nil
 }
 
-// renewCert renews a certificate and caches it or returns an error
-func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
-	return nil, nil
+func (m *Manager) client(ctx context.Context, req *Request, user acme.User) (*acme.Client, error) {
+	req.clientMu.Lock()
+	defer req.clientMu.Unlock()
+	if req.client != nil {
+		return req.client, nil
+	}
+	client, err := acme.NewClient(m.Endpoint, user, acme.RSA2048) // test EC256
+	if err != nil {
+		return nil, err
+	}
+	provider, err := req.provider()
+	if err != nil {
+		return nil, err
+	}
+	if req.DNSProviderName != "" {
+		client.SetChallengeProvider(acme.DNS01, provider)
+		client.ExcludeChallenges([]acme.Challenge{acme.HTTP01, acme.TLSSNI01})
+	} else {
+		client.SetChallengeProvider(acme.HTTP01, provider)
+		client.ExcludeChallenges([]acme.Challenge{acme.DNS01, acme.TLSSNI01})
+	}
+	req.client = client
+	return client, nil
 }
 
 // user finds or creates a new user private key
@@ -203,7 +292,17 @@ func (m *Manager) userFromStore(ctx context.Context, email string) (acme.User, e
 	if err != nil {
 		return nil, err
 	}
-	return &User{email: email, privateKey: privateKey}, nil
+	data, err = m.Store.Get(m.userAccountCacheKey(email))
+	if err != nil {
+		return nil, err
+	}
+	user := &User{}
+	err = json.Unmarshal(data, user)
+	if err != nil {
+		return nil, err
+	}
+	user.privateKey = privateKey
+	return user, nil
 }
 
 func (m *Manager) createUser(ctx context.Context, email string) (acme.User, error) {
@@ -211,14 +310,13 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 		return nil, err
 	}
 	defer m.releaseLock(email)
-	time.Sleep(20 * time.Second)
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, err
 	}
-	user := &User{email: email, privateKey: privateKey}
+	user := &User{Email: email, privateKey: privateKey}
 
-	client, err := acme.NewClient(m.Endpoint, user, acme.RSA2048)
+	client, err := acme.NewClient(m.Endpoint, user, acme.RSA2048) // test EC256
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +324,7 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 	if err != nil {
 		return nil, err
 	}
-	user.registration = reg
+	user.Registration = reg
 	if m.Prompt(reg.TosURL) {
 		if err := client.AgreeToTOS(); err != nil {
 			return nil, err
@@ -242,13 +340,20 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 	if err != nil {
 		return nil, err
 	}
+	account, err := json.MarshalIndent(user, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	if err := m.Store.Put(m.userAccountCacheKey(email), []byte(account)); err != nil {
+		return nil, err
+	}
 	return user, nil
 }
 
 func (m *Manager) expiring(cert *tls.Certificate) bool {
 	expiry, err := acme.GetPEMCertExpiration(cert.Certificate[0])
 	if err != nil {
-		return true
+		return false
 	}
 	if expiry.Sub(time.Now()) <= m.renewBefore() {
 		return true
@@ -290,11 +395,23 @@ func (m *Manager) cacheKeyPrefix() string {
 }
 
 func (m *Manager) certCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".pem")
+	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".crt")
+}
+
+func (m *Manager) certPKCacheKey(req *Request) string {
+	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".key")
+}
+
+func (m *Manager) certMetaCacheKey(req *Request) string {
+	return path.Join(m.cacheKeyPrefix(), req.Hosts[0]+".json")
 }
 
 func (m *Manager) userCacheKey(email string) string {
 	return path.Join(m.cacheKeyPrefix(), email+".key")
+}
+
+func (m *Manager) userAccountCacheKey(email string) string {
+	return path.Join(m.cacheKeyPrefix(), email+".json")
 }
 
 func (m *Manager) getLock(key string) error {
@@ -307,7 +424,7 @@ func (m *Manager) getLock(key string) error {
 	if err != nil && err != kvstore.ErrCacheMiss {
 		return err
 	}
-	if data != nil && string(data) != hostname {
+	if err == nil && string(data) != hostname {
 		return errors.New("unable to obtain lock, owned by: " + string(data))
 	}
 	if err := m.Store.Put(key, []byte(hostname)); err != nil {
@@ -317,7 +434,7 @@ func (m *Manager) getLock(key string) error {
 	if err != nil && err != kvstore.ErrCacheMiss {
 		return err
 	}
-	if data != nil && string(data) != hostname {
+	if err == nil && string(data) != hostname {
 		return errors.New("unable to obtain lock, owned by: " + string(data))
 	}
 	return nil
