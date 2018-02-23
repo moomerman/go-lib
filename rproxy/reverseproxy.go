@@ -23,6 +23,9 @@ type ReverseProxy struct {
 func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 	targetQuery := target.RawQuery
 	director := func(req *http.Request) {
+		if hostname != "" {
+			req.Host = hostname
+		}
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.URL.Path = singleJoiningSlash(target.Path, req.URL.Path)
