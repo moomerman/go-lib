@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/moomerman/go-lib/kvstore"
-	"github.com/xenolf/lego/acme"
+	"github.com/xenolf/lego/acmev2"
 )
 
 // Manager is a stateful certificate manager.
@@ -299,10 +299,10 @@ func (m *Manager) client(ctx context.Context, req *Request, user acme.User) (*ac
 	}
 	if req.DNSProviderName != "" {
 		client.SetChallengeProvider(acme.DNS01, provider)
-		client.ExcludeChallenges([]acme.Challenge{acme.HTTP01, acme.TLSSNI01})
+		client.ExcludeChallenges([]acme.Challenge{acme.HTTP01})
 	} else {
 		client.SetChallengeProvider(acme.HTTP01, provider)
-		client.ExcludeChallenges([]acme.Challenge{acme.DNS01, acme.TLSSNI01})
+		client.ExcludeChallenges([]acme.Challenge{acme.DNS01})
 	}
 	req.client = client
 	return client, nil
@@ -373,18 +373,18 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 	if err != nil {
 		return nil, err
 	}
-	reg, err := client.Register()
+	reg, err := client.Register(true) // FIXME: hardcoded TOS acceptance
 	if err != nil {
 		return nil, err
 	}
 	user.Registration = reg
-	if m.Prompt(reg.TosURL) {
-		if err := client.AgreeToTOS(); err != nil {
-			return nil, err
-		}
-	} else {
-		return nil, errors.New("terms of service were rejected")
-	}
+	// if m.Prompt(reg.TosURL) {
+	// 	if err := client.AgreeToTOS(); err != nil {
+	// 		return nil, err
+	// 	}
+	// } else {
+	// 	return nil, errors.New("terms of service were rejected")
+	// }
 	data, err := marshalPrivateKey(user.GetPrivateKey())
 	if err != nil {
 		return nil, err
@@ -418,11 +418,13 @@ func (m *Manager) expiring(cert *tls.Certificate) bool {
 // findRequest searches requests to find a matching host and returns an error
 // if it can't find one
 func (m *Manager) findRequest(host string) (*Request, error) {
+	wildcard := "*." + strings.Join(strings.Split(host, ".")[1:], ".")
+
 	m.requestsMu.Lock()
 	defer m.requestsMu.Unlock()
 	for _, r := range m.requests {
 		for _, h := range r.Hosts {
-			if h == host {
+			if h == host || h == wildcard {
 				return r, nil
 			}
 		}

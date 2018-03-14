@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"sync"
 
-	"github.com/xenolf/lego/acme"
+	"github.com/xenolf/lego/acmev2"
 )
 
 // Request holds all the details required to request a certificate

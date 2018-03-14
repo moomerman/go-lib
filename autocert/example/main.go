@@ -10,6 +10,7 @@ import (
 
 func main() {
 	m := &autocert.Manager{
+		Endpoint: "https://acme-staging-v02.api.letsencrypt.org/directory",
 		Store:    dir.Store("secret-dir"), // or consul.Store, etcd.Store
 		Notifier: autocert.SlackNotifier("https://hooks.slack.com/services/..."),
 		Prompt:   autocert.AcceptTOS,
