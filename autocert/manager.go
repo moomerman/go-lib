@@ -141,8 +141,10 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 		if m.expiring(req.certificate) {
 			cert, err := m.renewCert(ctx, req)
 			if err != nil {
+				m.Notifier.Error(req.Hosts, err.Error())
 				return nil, err
 			}
+			m.Notifier.Renewed(req.Hosts)
 			req.certificate = cert
 		}
 		return req.certificate, nil
@@ -155,16 +157,20 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 		if m.expiring(cert) {
 			cert, err = m.renewCert(ctx, req)
 			if err != nil {
+				m.Notifier.Error(req.Hosts, err.Error())
 				return nil, err
 			}
+			m.Notifier.Renewed(req.Hosts)
 		}
 		req.certificate = cert
 		return cert, nil
 	}
 	cert, err = m.createCert(ctx, req)
 	if err != nil {
+		m.Notifier.Error(req.Hosts, err.Error())
 		return nil, err
 	}
+	m.Notifier.Created(req.Hosts)
 	req.certificate = cert
 	return cert, nil
 }
@@ -404,11 +410,12 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 }
 
 func (m *Manager) expiring(cert *tls.Certificate) bool {
-	expiry, err := acme.GetPEMCertExpiration(cert.Certificate[1])
+	x, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
 		return false
 	}
-	if expiry.Sub(time.Now()) <= m.renewBefore() {
+
+	if x.NotAfter.Sub(time.Now()) <= m.renewBefore() {
 		return true
 	}
 
