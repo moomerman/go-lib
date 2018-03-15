@@ -19,3 +19,4 @@ type Store interface {
 * [Dir](https://godoc.org/github.com/moomerman/go-lib/kvstore/dir)
 * [Consul](https://godoc.org/github.com/moomerman/go-lib/kvstore/consul)
 * [Etcd](https://godoc.org/github.com/moomerman/go-lib/kvstore/etcd)
+* [S3](https://godoc.org/github.com/moomerman/go-lib/kvstore/s3)
