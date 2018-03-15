@@ -2,12 +2,15 @@ package kvstore_test
 
 import (
 	"bytes"
+	"crypto/tls"
+	"net/http"
 	"testing"
 
 	"github.com/moomerman/go-lib/kvstore"
 	"github.com/moomerman/go-lib/kvstore/consul"
 	"github.com/moomerman/go-lib/kvstore/dir"
 	"github.com/moomerman/go-lib/kvstore/etcd"
+	"github.com/moomerman/go-lib/kvstore/s3"
 )
 
 func TestDirStore(t *testing.T) {
@@ -26,6 +29,19 @@ func TestConsulStore(t *testing.T) {
 func TestEtcdStore(t *testing.T) {
 	store := &etcd.Store{
 		Endpoints: []string{"localhost:2379"},
+	}
+	testStore(store, t)
+}
+
+func TestS3Store(t *testing.T) {
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+
+	store := &s3.Store{
+		Endpoint:    "minio.dev",
+		AccessToken: "L5YDLJBB97WKDBIESOOQ",
+		SecretToken: "tQMhEKy70wrBaY8iVWxv8HRKEWiFVu83KWMa8jjP",
+		Bucket:      "kvstore",
+		Region:      "us-west-2",
 	}
 	testStore(store, t)
 }

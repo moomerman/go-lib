@@ -14,7 +14,7 @@ type Store struct {
 	Endpoints []string
 
 	clientMu sync.Mutex
-	client   *clientv3.Client // initialized by the client method
+	client   *clientv3.Client // initialized by etcdClient()
 }
 
 // Get implements kvstore.Store.Get
