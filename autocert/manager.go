@@ -436,7 +436,7 @@ func (m *Manager) findRequest(host string) (*Request, error) {
 			}
 		}
 	}
-	return nil, errors.New("could not find request for: " + host)
+	return nil, errors.New("[autocert] could not find request for host: " + host + " or wildcard: " + wildcard)
 }
 
 func (m *Manager) renewBefore() time.Duration {
