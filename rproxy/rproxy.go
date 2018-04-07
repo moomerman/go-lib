@@ -1,6 +1,7 @@
 package rproxy
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -11,7 +12,7 @@ import (
 	"github.com/yhat/wsutil"
 )
 
-// ReverseProxy holds the state for the HTTP proxy and WS proxy
+// ReverseProxy holds the state for the HTTP ReverseProxy and Websocket Proxy
 type ReverseProxy struct {
 	URL      *url.URL
 	Hostname string
@@ -20,9 +21,10 @@ type ReverseProxy struct {
 	wsproxy *wsutil.ReverseProxy
 }
 
-// New returns a new multiproxy
+// New returns a new ReverseProxy
 func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 	targetQuery := target.RawQuery
+
 	director := func(req *http.Request) {
 		if hostname != "" {
 			req.Host = hostname
@@ -42,19 +44,26 @@ func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 	}
 
 	transport := &myTransport{
-		&http.Transport{
+		transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-				DualStack: true,
-			}).DialContext,
+			Dial: func(network, addr string) (net.Conn, error) {
+				conn, err := (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).Dial(network, addr)
+				if err != nil {
+					fmt.Println("[rproxy]", addr, "error dialling:", err.Error())
+				} else {
+					fmt.Println("[rproxy]", addr, ":", conn.LocalAddr(), "->", conn.RemoteAddr())
+				}
+				return conn, err
+			},
 			MaxIdleConns:          100,
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		},
-		[]string{"Server"},
+		stripHeaders: []string{"Server"},
 	}
 
 	proxy := &httputil.ReverseProxy{
@@ -91,16 +100,15 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type myTransport struct {
-	*http.Transport
+	transport    *http.Transport
 	stripHeaders []string
 }
 
 func (t *myTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := http.DefaultTransport.RoundTrip(req)
+	resp, err := t.transport.RoundTrip(req)
 	if err != nil {
 		return nil, err
 	}
-
 	for _, hdr := range t.stripHeaders {
 		resp.Header.Del(hdr)
 	}
