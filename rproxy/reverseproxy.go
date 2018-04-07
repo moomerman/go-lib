@@ -1,6 +1,7 @@
 package rproxy
 
 import (
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -41,7 +42,19 @@ func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 	}
 
 	transport := &myTransport{
-		stripHeaders: []string{"Server"},
+		&http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+		[]string{"Server"},
 	}
 
 	proxy := &httputil.ReverseProxy{
