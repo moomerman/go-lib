@@ -1,6 +1,7 @@
 package rproxy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -46,15 +47,15 @@ func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 	transport := &myTransport{
 		transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
-			Dial: func(network, addr string) (net.Conn, error) {
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				conn, err := (&net.Dialer{
 					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
+					KeepAlive: 60 * time.Second,
 				}).Dial(network, addr)
 				if err != nil {
-					fmt.Println("[rproxy]", addr, "error dialling:", err.Error())
+					fmt.Println("[rproxy] ~dial~", addr, "error:", err.Error())
 				} else {
-					fmt.Println("[rproxy]", addr, ":", conn.LocalAddr(), "->", conn.RemoteAddr())
+					fmt.Println("[rproxy] ~dial~", addr, ":", conn.LocalAddr(), "->", conn.RemoteAddr())
 				}
 				return conn, err
 			},

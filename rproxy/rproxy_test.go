@@ -33,7 +33,7 @@ func TestReverseProxy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if g, e := res.StatusCode, http.StatusAccepted; g != e {
+	if g, e := res.StatusCode, http.StatusOK; g != e {
 		t.Errorf("got res.StatusCode %d; expected %d", g, e)
 	}
 
