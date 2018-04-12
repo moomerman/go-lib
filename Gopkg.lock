@@ -132,6 +132,12 @@
   revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
 
 [[projects]]
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
+  version = "v1.0.5"
+
+[[projects]]
   branch = "acmev2"
   name = "github.com/xenolf/lego"
   packages = [
@@ -154,7 +160,8 @@
   packages = [
     "ed25519",
     "ed25519/internal/edwards25519",
-    "ocsp"
+    "ocsp",
+    "ssh/terminal"
   ]
   revision = "b2aa35443fbc700ab74c586ae79b81c171851023"
 
@@ -176,6 +183,15 @@
     "trace"
   ]
   revision = "61147c48b25b599e5b561d2e9c4f3e1ef489ca41"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = [
+    "unix",
+    "windows"
+  ]
+  revision = "3b87a42e500a6dc65dae1a55d0b641295971163e"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -258,6 +274,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dd77a3ceae08eca11d5d0d9f2d8bb735f229cc8fdc83ec581e43cef5f939cb17"
+  inputs-digest = "4dde5be2efac990165abf7fe37197114f884eb5f121878aa3dc6e7d921637d0d"
   solver-name = "gps-cdcl"
   solver-version = 1
