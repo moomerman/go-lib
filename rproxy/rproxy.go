@@ -2,6 +2,7 @@ package rproxy
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -9,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/yhat/wsutil"
 )
 
@@ -53,16 +53,9 @@ func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 					KeepAlive: 60 * time.Second,
 				}).Dial(network, addr)
 				if err != nil {
-					log.WithFields(log.Fields{
-						"addr":  addr,
-						"error": err.Error(),
-					}).Error("dial")
+					fmt.Println("[rproxy]", "msg=dial error", "addr="+addr, "error="+err.Error())
 				} else {
-					log.WithFields(log.Fields{
-						"addr":   addr,
-						"local":  conn.LocalAddr(),
-						"remote": conn.RemoteAddr(),
-					}).Info("dial")
+					fmt.Println("[rproxy]", "msg=dial", "addr="+addr, "local="+conn.LocalAddr().String(), "remote="+conn.RemoteAddr().String())
 				}
 				return conn, err
 			},
