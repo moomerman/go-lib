@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -18,6 +20,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -131,6 +134,33 @@ func (m *Manager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, 
 	defer cancel()
 
 	return m.cert(ctx, request)
+}
+
+// Status returns a map with the current status of the certificates in the store
+func (m *Manager) Status() []string {
+	// iterate over the requests, show the status, expiry, any errors
+	s := []string{}
+
+	for _, r := range m.requests {
+		status := strings.Join(r.Hosts, ",")
+		status = status + " [" + hash(r.Hosts) + "]"
+		status = status + " => "
+		if r.certificate == nil {
+			status = status + "NOT LOADED"
+		} else {
+			expiry, err := expiry(r.certificate)
+			if err != nil {
+				status = status + "ERROR"
+			} else {
+				status = status + expiry.Sub(time.Now()).String()
+				status = status + " (" + (expiry.Sub(time.Now()) / (time.Hour * 24)).String() + "d)"
+			}
+		}
+
+		s = append(s, status)
+	}
+
+	return s
 }
 
 // cert returns an existing certificate or requests a new one
@@ -569,4 +599,22 @@ func unmarshalPrivateKey(keyBytes []byte) (crypto.PrivateKey, error) {
 		return x509.ParseECPrivateKey(keyBlock.Bytes)
 	}
 	return nil, errors.New("unknown private key type")
+}
+
+func expiry(cert *tls.Certificate) (time.Time, error) {
+	x, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return time.Now(), err
+	}
+
+	return x.NotAfter, nil
+}
+
+func hash(hosts []string) string {
+	sorted := []string{}
+	sorted = append(sorted, hosts...)
+	sort.Strings(sorted)
+	hasher := md5.New()
+	hasher.Write([]byte(strings.Join(sorted, ",")))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
