@@ -269,11 +269,10 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 	if err != nil {
 		return nil, err
 	}
-	resource, errs := client.ObtainCertificate(req.Hosts, true, nil, false)
-	if len(errs) > 0 {
-		log.Println("[autocert] error obtaining certificate", errs)
-		json, _ := json.MarshalIndent(errs, "", "  ")
-		return nil, errors.New(string(json))
+	resource, err := client.ObtainCertificate(req.Hosts, true, nil, false)
+	if err != nil {
+		log.Println("[autocert] error obtaining certificate", err)
+		return nil, err
 	}
 	if err := m.putCertificateResourceInStore(ctx, req, &resource); err != nil {
 		return nil, err
