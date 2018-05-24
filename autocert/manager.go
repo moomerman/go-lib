@@ -554,6 +554,7 @@ func (m *Manager) provider(ctx context.Context, req *Request) (acme.ChallengePro
 }
 
 func handleHTTPRedirect(w http.ResponseWriter, r *http.Request) {
+	log.Println("[autocert]", "handleHTTPRedirect", r.Method, r.Host, r.URL.Path)
 	if r.Method != "GET" && r.Method != "HEAD" {
 		http.Error(w, "Use HTTPS", http.StatusBadRequest)
 		return
