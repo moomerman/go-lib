@@ -14,6 +14,7 @@
     "aws/credentials/ec2rolecreds",
     "aws/credentials/endpointcreds",
     "aws/credentials/stscreds",
+    "aws/csm",
     "aws/defaults",
     "aws/ec2metadata",
     "aws/endpoints",
@@ -24,6 +25,8 @@
     "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
+    "private/protocol/eventstream",
+    "private/protocol/eventstream/eventstreamapi",
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
@@ -34,8 +37,8 @@
     "service/s3/s3manager",
     "service/sts"
   ]
-  revision = "70f8337208b7dfd7940a7e13dca0804464b74274"
-  version = "v1.13.45"
+  revision = "47309c012812d9e9c488a54313e5cdfa7479df93"
+  version = "v1.14.1"
 
 [[projects]]
   name = "github.com/coreos/etcd"
@@ -47,20 +50,20 @@
     "mvcc/mvccpb",
     "pkg/types"
   ]
-  revision = "70c8726202dd91e482fb4029fd14af1d4ed1d5af"
-  version = "v3.3.5"
+  revision = "56536de5511128d0c7997aa2b792a4de575da536"
+  version = "v3.3.7"
 
 [[projects]]
+  branch = "master"
   name = "github.com/dnsimple/dnsimple-go"
   packages = ["dnsimple"]
-  revision = "4618db489ff90331782dd0a6cf3aa0de68415355"
-  version = "v0.16.0"
+  revision = "bbe1a2c87affea187478e24d3aea3cac25f870b3"
 
 [[projects]]
   name = "github.com/go-ini/ini"
   packages = ["."]
-  revision = "6529cf7c58879c08d927016dde4477f18a0634cb"
-  version = "v1.36.0"
+  revision = "06f5f3d67269ccec1fe5fe4134ba6e982984f7f5"
+  version = "v1.37.0"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -93,8 +96,8 @@
 [[projects]]
   name = "github.com/hashicorp/consul"
   packages = ["api"]
-  revision = "fb848fc48818f58690db09d14640513aa6bf3c02"
-  version = "v1.0.7"
+  revision = "5174058f0d2bda63fa5198ab96c33d9a909c58ed"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -122,25 +125,25 @@
 [[projects]]
   name = "github.com/miekg/dns"
   packages = ["."]
-  revision = "eac804ceef194db2da6ee80c728d7658c8c805ff"
-  version = "v1.0.6"
+  revision = "5a2b9fab83ff0f8bfc99684bd5f43a37abe560f1"
+  version = "v1.0.8"
 
 [[projects]]
   branch = "master"
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
-  revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
+  revision = "3864e76763d94a6df2f9960b16a20a33da9f9a66"
 
 [[projects]]
-  branch = "acmev2"
   name = "github.com/xenolf/lego"
   packages = [
     "acme",
-    "acmev2",
+    "log",
     "providers/dns/dnsimple",
     "providers/dns/dnsmadeeasy"
   ]
-  revision = "fad2257e11ae4ff31ed03739386873aa405dec2d"
+  revision = "27e0f97c9df37cad8c4ba0ef1d133fa57afb7469"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "master"
@@ -156,7 +159,7 @@
     "ed25519/internal/edwards25519",
     "ocsp"
   ]
-  revision = "2d027ae1dddd4694d54f7a8b6cbe78dca8720226"
+  revision = "b47b1587369238182299fe4dad77d05b8b461e06"
 
 [[projects]]
   branch = "master"
@@ -175,7 +178,7 @@
     "ipv6",
     "trace"
   ]
-  revision = "f73e4c9ed3b7ebdd5f699a16a880c2b1994e50dd"
+  revision = "1e491301e022f8f977054da4c2d852decd59571f"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -202,7 +205,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "86e600f69ee4704c6efbf6a2a40a5c10700e76c2"
+  revision = "81158efcc9f219c511e4d3c0d61a0e6e49c01a24"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -233,18 +236,8 @@
     "tap",
     "transport"
   ]
-  revision = "41344da2231b913fa3d983840a57a6b1b7b631a1"
-  version = "v1.12.0"
-
-[[projects]]
-  name = "gopkg.in/square/go-jose.v1"
-  packages = [
-    ".",
-    "cipher",
-    "json"
-  ]
-  revision = "6e50787b7338112747e64f32753fb4f9dbfb8f79"
-  version = "v1.1.1"
+  revision = "22a49e732a507a11ac524e4ea5fd1a3e384b6fb8"
+  version = "v1.12.1"
 
 [[projects]]
   name = "gopkg.in/square/go-jose.v2"
@@ -259,6 +252,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f4991feef67ed9fccca261910b78811fbeb50ea59a12b09686cabc96a87396ca"
+  inputs-digest = "df53404d6e73d252d095dc26b7dfac5dc8e4bc6924bf218dc430b04f12050cdc"
   solver-name = "gps-cdcl"
   solver-version = 1

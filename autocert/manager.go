@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/moomerman/go-lib/kvstore"
-	"github.com/xenolf/lego/acmev2"
+	"github.com/xenolf/lego/acme"
 )
 
 // Manager is a stateful certificate manager.
@@ -274,7 +274,7 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 		log.Println("[autocert] error obtaining certificate", err)
 		return nil, err
 	}
-	if err := m.putCertificateResourceInStore(ctx, req, &resource); err != nil {
+	if err := m.putCertificateResourceInStore(ctx, req, resource); err != nil {
 		return nil, err
 	}
 	cert, err := tls.X509KeyPair(resource.Certificate, resource.PrivateKey)
@@ -308,7 +308,7 @@ func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate
 		log.Println("[autocert] error renewing certificate", err)
 		return nil, err
 	}
-	if err := m.putCertificateResourceInStore(ctx, req, &newResource); err != nil {
+	if err := m.putCertificateResourceInStore(ctx, req, newResource); err != nil {
 		return nil, err
 	}
 	cert, err := tls.X509KeyPair(newResource.Certificate, newResource.PrivateKey)
@@ -408,7 +408,7 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 	if err != nil {
 		return nil, err
 	}
-	reg, err := client.Register(true) // FIXME: hardcoded TOS acceptance
+	reg, err := client.Register(true) // FIXME: hardcoded acceptance
 	if err != nil {
 		return nil, err
 	}

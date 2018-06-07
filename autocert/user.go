@@ -3,7 +3,7 @@ package autocert
 import (
 	"crypto"
 
-	"github.com/xenolf/lego/acmev2"
+	"github.com/xenolf/lego/acme"
 )
 
 // User implements the required interface for acme
