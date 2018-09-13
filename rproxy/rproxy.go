@@ -2,6 +2,8 @@ package rproxy
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"net/http"
@@ -24,6 +26,11 @@ type ReverseProxy struct {
 
 // New returns a new ReverseProxy
 func New(target *url.URL, hostname string) (*ReverseProxy, error) {
+	return NewWithTrustedCertificates(target, hostname, nil)
+}
+
+// NewWithTrustedCertificates returns a new ReverseProxy
+func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.Certificate) (*ReverseProxy, error) {
 	targetQuery := target.RawQuery
 
 	director := func(req *http.Request) {
@@ -41,6 +48,17 @@ func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 		if _, ok := req.Header["User-Agent"]; !ok {
 			// explicitly disable User-Agent so it's not set to default value
 			req.Header.Set("User-Agent", "")
+		}
+	}
+
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+
+	if certs != nil {
+		for _, cert := range certs {
+			rootCAs.AddCert(cert.Leaf)
 		}
 	}
 
@@ -63,6 +81,9 @@ func New(target *url.URL, hostname string) (*ReverseProxy, error) {
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
+			TLSClientConfig: &tls.Config{
+				RootCAs: rootCAs,
+			},
 		},
 		stripHeaders: []string{"Server"},
 	}
