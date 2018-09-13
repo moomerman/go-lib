@@ -60,9 +60,11 @@ func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.C
 	if certs != nil {
 		for _, cert := range certs {
 			if cert != nil {
-				log.Println("[rproxy] adding cert to pool", cert)
-				// x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
-				rootCAs.AppendCertsFromPEM(cert.Certificate[0])
+				x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
+				if err == nil {
+					log.Println("[rproxy] adding cert to pool", x509Cert.IsCA)
+					rootCAs.AddCert(x509Cert)
+				}
 			}
 		}
 	}
