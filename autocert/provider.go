@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/xenolf/lego/acme"
-	"github.com/xenolf/lego/providers/dns/dnsimple"
 	"github.com/xenolf/lego/providers/dns/dnsmadeeasy"
 )
 
@@ -30,11 +29,11 @@ func GetDNSProvider(name DNSProviderName, credentials []string) (acme.ChallengeP
 			credentials[0],
 			credentials[1],
 		)
-	case "dnsimple":
-		provider, err = dnsimple.NewDNSProviderCredentials(
-			credentials[0],
-			"",
-		)
+	// case "dnsimple":
+	// 	provider, err = dnsimple.NewDNSProviderCredentials(
+	// 		credentials[0],
+	// 		"",
+	// 	)
 	default:
 		err = fmt.Errorf("Unrecognised DNS provider: %s", name)
 	}

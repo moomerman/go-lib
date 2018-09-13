@@ -21,12 +21,12 @@ func ExampleManager() {
 		Hosts: []string{"example.com", "www.example.com"},
 	})
 
-	// DNS verification
-	m.Add(&autocert.Request{
-		Hosts:           []string{"example.com"},
-		DNSProviderName: autocert.DNSimpleProvider,
-		DNSCredentials:  []string{"API_KEY"},
-	})
+	// // DNS verification
+	// m.Add(&autocert.Request{
+	// 	Hosts:           []string{"example.com"},
+	// 	DNSProviderName: autocert.DNSimpleProvider,
+	// 	DNSCredentials:  []string{"API_KEY"},
+	// })
 
 	go http.ListenAndServe(":http", m.HTTPHandler(nil))
 	// m.Run() // optional blocking call to ensure all certificates are issued before starting https server
