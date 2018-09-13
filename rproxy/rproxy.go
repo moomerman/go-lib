@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -59,7 +60,9 @@ func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.C
 	if certs != nil {
 		for _, cert := range certs {
 			if cert != nil {
-				rootCAs.AddCert(cert.Leaf)
+				log.Println("[rproxy] adding cert to pool", cert)
+				// x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
+				rootCAs.AppendCertsFromPEM(cert.Certificate[0])
 			}
 		}
 	}
