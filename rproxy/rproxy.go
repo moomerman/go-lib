@@ -58,7 +58,9 @@ func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.C
 
 	if certs != nil {
 		for _, cert := range certs {
-			rootCAs.AddCert(cert.Leaf)
+			if cert != nil {
+				rootCAs.AddCert(cert.Leaf)
+			}
 		}
 	}
 
