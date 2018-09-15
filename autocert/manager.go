@@ -151,27 +151,29 @@ func (m *Manager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, 
 }
 
 // Status returns a map with the current status of the certificates in the store
-func (m *Manager) Status() []string {
+func (m *Manager) Status() map[string]interface{} {
 	// iterate over the requests, show the status, expiry, any errors
-	s := []string{}
+	s := make(map[string]interface{})
 
 	for _, r := range m.requests {
-		status := strings.Join(r.Hosts, ",")
-		status = status + " [" + r.hostHash + "]"
-		status = status + " => "
-		if r.certificate == nil {
-			status = status + "NOT LOADED"
-		} else {
+		status := "pending"
+		var expires time.Duration
+		remaining := 0
+		if r.certificate != nil {
+			status = "active"
 			expiry, err := expiry(r.certificate)
-			if err != nil {
-				status = status + "ERROR"
-			} else {
-				status = status + expiry.Sub(time.Now()).String()
-				status = status + " (" + (expiry.Sub(time.Now()) / (time.Hour * 24)).String() + "d)"
+			if err == nil {
+				expires = expiry.Sub(time.Now())
+				remaining = int(expiry.Sub(time.Now()) / (time.Hour * 24))
 			}
 		}
 
-		s = append(s, status)
+		s[strings.Join(r.Hosts, ",")] = struct {
+			Status    string
+			Hash      string
+			Expires   time.Duration
+			Remaining int
+		}{status, r.hostHash, expires, remaining}
 	}
 
 	return s
