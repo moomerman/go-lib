@@ -90,9 +90,23 @@ func AcceptTOS(tosURL string) bool { return true }
 
 // Add adds a Request for the Manager
 func (m *Manager) Add(req *Request) {
+	req.hostHash = hash(req.Hosts)
 	m.requestsMu.Lock()
 	defer m.requestsMu.Unlock()
-	m.requests = append(m.requests, req)
+
+	// check for an existing certificate request
+	var existing *Request
+	for _, r := range m.requests {
+		if r.hostHash == req.hostHash {
+			existing = r
+		}
+	}
+
+	if existing == nil {
+		m.requests = append(m.requests, req)
+	} else {
+		log.Println("[autocert]", "skip existing certificate request", req)
+	}
 }
 
 // HTTPHandler returns a handler to verify http-01 challenges
@@ -143,7 +157,7 @@ func (m *Manager) Status() []string {
 
 	for _, r := range m.requests {
 		status := strings.Join(r.Hosts, ",")
-		status = status + " [" + hash(r.Hosts) + "]"
+		status = status + " [" + r.hostHash + "]"
 		status = status + " => "
 		if r.certificate == nil {
 			status = status + "NOT LOADED"
@@ -610,6 +624,7 @@ func expiry(cert *tls.Certificate) (time.Time, error) {
 	return x.NotAfter, nil
 }
 
+// hash sorts and hashes all the hostnames so we get a consistent unique identifier
 func hash(hosts []string) string {
 	sorted := []string{}
 	sorted = append(sorted, hosts...)

@@ -21,4 +21,6 @@ type Request struct {
 
 	providerMu sync.Mutex
 	provider   acme.ChallengeProvider
+
+	hostHash string
 }
