@@ -10,7 +10,7 @@ import (
 // Request holds all the details required to request a certificate
 type Request struct {
 	Hosts           []string
-	DNSProviderName DNSProviderName
+	DNSProviderName dnsProviderName
 	DNSCredentials  []string
 
 	certificateMu sync.Mutex

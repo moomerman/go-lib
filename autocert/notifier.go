@@ -10,26 +10,26 @@ import (
 
 // Notifier is used by Manager to send notifications on main events
 type Notifier interface {
-	Created(hosts []string)
-	Renewed(hosts []string)
-	Error(hosts []string, msg string)
+	created(hosts []string)
+	renewed(hosts []string)
+	error(hosts []string, msg string)
 }
 
 // SlackNotifier implements Notifier for Slack with a provided Webhook URL
 type SlackNotifier string
 
 // Created implements Notifier.Created
-func (n SlackNotifier) Created(hosts []string) {
+func (n SlackNotifier) created(hosts []string) {
 	n.sendRequest(hosts, "created", "good")
 }
 
 // Renewed implements Notifier.Renewed
-func (n SlackNotifier) Renewed(hosts []string) {
+func (n SlackNotifier) renewed(hosts []string) {
 	n.sendRequest(hosts, "renewed", "good")
 }
 
 // Error implements Notifier.Error
-func (n SlackNotifier) Error(hosts []string, msg string) {
+func (n SlackNotifier) error(hosts []string, msg string) {
 	n.sendRequest(hosts, msg, "danger")
 }
 

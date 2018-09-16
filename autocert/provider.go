@@ -9,16 +9,16 @@ import (
 )
 
 // DNSProviderName holds the name of a provider
-type DNSProviderName string
+type dnsProviderName string
 
 // DNSimpleProvider the DNSimple provider
-const DNSimpleProvider DNSProviderName = "dnsimple"
+const DNSimpleProvider dnsProviderName = "dnsimple"
 
 // DNSMadeEasyProvider the DNSMadeEasy provider
-const DNSMadeEasyProvider DNSProviderName = "dnsmadeeasy"
+const DNSMadeEasyProvider dnsProviderName = "dnsmadeeasy"
 
-// GetDNSProvider returns an acme Provider for the given DNSProviderName
-func GetDNSProvider(name DNSProviderName, credentials []string) (acme.ChallengeProvider, error) {
+// getDNSProvider returns an acme Provider for the given DNSProviderName
+func getDNSProvider(name dnsProviderName, credentials []string) (acme.ChallengeProvider, error) {
 	var err error
 	var provider acme.ChallengeProvider
 
@@ -41,19 +41,19 @@ func GetDNSProvider(name DNSProviderName, credentials []string) (acme.ChallengeP
 	return provider, err
 }
 
-// HTTPProvider holds the Request
-type HTTPProvider struct {
+// httpProvider holds the Request
+type httpProvider struct {
 	Manager *Manager
 }
 
 // Present prepares the domain for verification
-func (p *HTTPProvider) Present(domain, token, keyAuth string) error {
+func (p *httpProvider) Present(domain, token, keyAuth string) error {
 	log.Println("[autocert]", "present", domain, token, keyAuth)
 	return p.Manager.Store.Put(p.Manager.certChallengeCacheKey(domain), []byte(keyAuth))
 }
 
 // CleanUp cleans up after domain verification
-func (p *HTTPProvider) CleanUp(domain, token, keyAuth string) error {
+func (p *httpProvider) CleanUp(domain, token, keyAuth string) error {
 	log.Println("[autocert]", "cleanup", domain, token, keyAuth)
 	return p.Manager.Store.Delete(p.Manager.certChallengeCacheKey(domain))
 }

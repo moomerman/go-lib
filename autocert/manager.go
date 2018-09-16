@@ -198,10 +198,10 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 				log.Println("[autocert] certificate has definitely expired, renewing")
 				cert, err := m.renewCert(ctx, req)
 				if err != nil {
-					m.Notifier.Error(req.Hosts, err.Error())
+					m.Notifier.error(req.Hosts, err.Error())
 					return nil, err
 				}
-				m.Notifier.Renewed(req.Hosts)
+				m.Notifier.renewed(req.Hosts)
 				req.certificate = cert
 			}
 		}
@@ -217,10 +217,10 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 		if m.expiring(cert) {
 			cert, err = m.renewCert(ctx, req)
 			if err != nil {
-				m.Notifier.Error(req.Hosts, err.Error())
+				m.Notifier.error(req.Hosts, err.Error())
 				return nil, err
 			}
-			m.Notifier.Renewed(req.Hosts)
+			m.Notifier.renewed(req.Hosts)
 		}
 		req.certificate = cert
 		return cert, nil
@@ -229,10 +229,10 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 	// create a new certificate
 	cert, err = m.createCert(ctx, req)
 	if err != nil {
-		m.Notifier.Error(req.Hosts, err.Error())
+		m.Notifier.error(req.Hosts, err.Error())
 		return nil, err
 	}
-	m.Notifier.Created(req.Hosts)
+	m.Notifier.created(req.Hosts)
 	req.certificate = cert
 	return cert, nil
 }
@@ -575,14 +575,14 @@ func (m *Manager) provider(ctx context.Context, req *Request) (acme.ChallengePro
 		return req.provider, nil
 	}
 	if req.DNSProviderName != "" {
-		provider, err := GetDNSProvider(req.DNSProviderName, req.DNSCredentials)
+		provider, err := getDNSProvider(req.DNSProviderName, req.DNSCredentials)
 		if err != nil {
 			return nil, err
 		}
 		req.provider = provider
 		return provider, nil
 	}
-	req.provider = &HTTPProvider{Manager: m}
+	req.provider = &httpProvider{Manager: m}
 	return req.provider, nil
 }
 
