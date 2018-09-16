@@ -90,7 +90,8 @@ func AcceptTOS(tosURL string) bool { return true }
 
 // Add adds a Request for the Manager
 func (m *Manager) Add(req *Request) {
-	req.hostHash = hash(req.Hosts)
+	// create a unique key for this set of Hosts and tag on a visible identifier
+	req.hostHash = hash(req.Hosts) + "-" + req.Hosts[0]
 	m.requestsMu.Lock()
 	defer m.requestsMu.Unlock()
 
@@ -289,10 +290,10 @@ func (m *Manager) putCertificateResourceInStore(ctd context.Context, req *Reques
 // createCert creates a certificate and stores it or returns an error
 func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
 	log.Println("[autocert] creating certificate", req.Hosts)
-	if err := m.getLock(req.Hosts[0]); err != nil {
+	if err := m.getLock(req.hostHash); err != nil {
 		return nil, err
 	}
-	defer m.releaseLock(req.Hosts[0])
+	defer m.releaseLock(req.hostHash)
 	user, err := m.user(ctx, req)
 	if err != nil {
 		return nil, err
@@ -320,10 +321,10 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 // TODO: instead of using the first host as the key, use the hostHash (and maybe the first one to make it easier to debug)
 func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
 	log.Println("[autocert] renewing certificate", req.Hosts)
-	if err := m.getLock(req.Hosts[0]); err != nil {
+	if err := m.getLock(req.hostHash); err != nil {
 		return nil, err
 	}
-	defer m.releaseLock(req.Hosts[0])
+	defer m.releaseLock(req.hostHash)
 	user, err := m.user(ctx, req)
 	if err != nil {
 		return nil, err
@@ -514,15 +515,15 @@ func (m *Manager) cacheKeyPrefix() string {
 }
 
 func (m *Manager) certCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.Hosts[0], req.Hosts[0]+".crt")
+	return path.Join(m.cacheKeyPrefix(), req.hostHash, req.hostHash+".crt")
 }
 
 func (m *Manager) certPKCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.Hosts[0], req.Hosts[0]+".key")
+	return path.Join(m.cacheKeyPrefix(), req.hostHash, req.hostHash+".key")
 }
 
 func (m *Manager) certMetaCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.Hosts[0], req.Hosts[0]+".json")
+	return path.Join(m.cacheKeyPrefix(), req.hostHash, req.hostHash+".json")
 }
 
 func (m *Manager) certChallengeCacheKey(host string) string {
