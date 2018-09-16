@@ -183,18 +183,32 @@ func (m *Manager) Status() map[string]interface{} {
 func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, error) {
 	req.certificateMu.Lock()
 	defer req.certificateMu.Unlock()
+
+	// aready loaded certificate, check expiry, renew if necessary and return
 	if req.certificate != nil {
 		if m.expiring(req.certificate) {
-			cert, err := m.renewCert(ctx, req)
+			log.Println("[autocert] checking to see if we have an updated certificate before renewing")
+			cert, err := m.certFromStore(ctx, req)
 			if err != nil {
-				m.Notifier.Error(req.Hosts, err.Error())
 				return nil, err
 			}
-			m.Notifier.Renewed(req.Hosts)
 			req.certificate = cert
+
+			if m.expiring(req.certificate) {
+				log.Println("[autocert] certificate has definitely expired, renewing")
+				cert, err := m.renewCert(ctx, req)
+				if err != nil {
+					m.Notifier.Error(req.Hosts, err.Error())
+					return nil, err
+				}
+				m.Notifier.Renewed(req.Hosts)
+				req.certificate = cert
+			}
 		}
 		return req.certificate, nil
 	}
+
+	// fetch existing certificate from store if exists, check expiry, renew if necessay, return
 	cert, err := m.certFromStore(ctx, req)
 	if err != nil && err != kvstore.ErrCacheMiss {
 		return nil, err
@@ -211,6 +225,8 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 		req.certificate = cert
 		return cert, nil
 	}
+
+	// create a new certificate
 	cert, err = m.createCert(ctx, req)
 	if err != nil {
 		m.Notifier.Error(req.Hosts, err.Error())
@@ -301,6 +317,7 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 }
 
 // renewCert renews a certificate and stores it or returns an error
+// TODO: instead of using the first host as the key, use the hostHash (and maybe the first one to make it easier to debug)
 func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
 	log.Println("[autocert] renewing certificate", req.Hosts)
 	if err := m.getLock(req.Hosts[0]); err != nil {
