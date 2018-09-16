@@ -9,16 +9,16 @@ import (
 )
 
 // DNSProviderName holds the name of a provider
-type dnsProviderName string
+type DNSProviderName string
 
 // DNSimpleProvider the DNSimple provider
-const DNSimpleProvider dnsProviderName = "dnsimple"
+const DNSimpleProvider DNSProviderName = "dnsimple"
 
 // DNSMadeEasyProvider the DNSMadeEasy provider
-const DNSMadeEasyProvider dnsProviderName = "dnsmadeeasy"
+const DNSMadeEasyProvider DNSProviderName = "dnsmadeeasy"
 
 // getDNSProvider returns an acme Provider for the given DNSProviderName
-func getDNSProvider(name dnsProviderName, credentials []string) (acme.ChallengeProvider, error) {
+func getDNSProvider(name DNSProviderName, credentials []string) (acme.ChallengeProvider, error) {
 	var err error
 	var provider acme.ChallengeProvider
 
