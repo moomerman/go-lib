@@ -2,21 +2,12 @@ package autocert
 
 import (
 	"context"
-	"crypto"
-	"crypto/ecdsa"
 	"crypto/md5"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
-	"encoding/json"
-	"encoding/pem"
 	"errors"
-	"fmt"
 	"log"
-	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -108,47 +99,9 @@ func (m *Manager) Add(req *Request) {
 	} else {
 		log.Println("[autocert]", "skip existing certificate request", req)
 	}
-}
 
-// HTTPHandler returns a handler to verify http-01 challenges
-func (m *Manager) HTTPHandler(fallback http.Handler) http.Handler {
-	if fallback == nil {
-		fallback = http.HandlerFunc(handleHTTPRedirect)
-	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/.well-known/acme-challenge/") {
-			fallback.ServeHTTP(w, r)
-			return
-		}
-		token := path.Base(r.URL.Path)
-		auth, err := m.Store.Get(m.certChallengeCacheKey(r.Host))
-		if err != nil {
-			log.Println("[autocert]", "HTTPHandler", r.Host, r.URL.Path, token, err)
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-
-		if !strings.HasPrefix(string(auth), token) {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-
-		fmt.Fprintf(w, "%s", auth)
-	})
-}
-
-// GetCertificate implements the tls.Config.GetCertificate hook.
-// It provides a TLS certificate for a given hello.ServerName host
-func (m *Manager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	request, err := m.findRequest(hello.ServerName)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	return m.cert(ctx, request)
+	// TODO: at this point we should ensure we have a background monitor in
+	// place to renew certificates and ocsp responses, once every 24 hours?
 }
 
 // Status returns a map with the current status of the certificates in the store
@@ -174,182 +127,32 @@ func (m *Manager) Status() map[string]interface{} {
 			Hash      string
 			Expires   time.Duration
 			Remaining int
-		}{status, r.hostHash, expires, remaining}
+			Error     error
+		}{status, r.hostHash, expires, remaining, r.error}
 	}
 
 	return s
 }
 
-// cert returns an existing certificate or requests a new one
-func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, error) {
-	req.certificateMu.Lock()
-	defer req.certificateMu.Unlock()
-
-	// aready loaded certificate, check expiry, renew if necessary and return
-	if req.certificate != nil {
-		if m.expiring(req.certificate) {
-			log.Println("[autocert] checking to see if we have an updated certificate before renewing")
-			cert, err := m.certFromStore(ctx, req)
-			if err != nil {
-				return nil, err
-			}
-			req.certificate = cert
-
-			if m.expiring(req.certificate) {
-				log.Println("[autocert] certificate has definitely expired, renewing")
-				cert, err := m.renewCert(ctx, req)
-				if err != nil {
-					m.Notifier.error(req.Hosts, err.Error())
-					return nil, err
-				}
-				m.Notifier.renewed(req.Hosts)
-				req.certificate = cert
-			}
+// Monitor starts a goroutine to renew certificates / OCSP daily
+func (m *Manager) Monitor() {
+	go func() {
+		time.Sleep(5 * time.Second)
+		log.Println("[autocert]", "starting background monitor, runs every 24h")
+		for {
+			m.check()
+			time.Sleep(24 * time.Hour)
 		}
-		return req.certificate, nil
-	}
-
-	// fetch existing certificate from store if exists, check expiry, renew if necessay, return
-	cert, err := m.certFromStore(ctx, req)
-	if err != nil && err != kvstore.ErrCacheMiss {
-		return nil, err
-	}
-	if err == nil {
-		if m.expiring(cert) {
-			cert, err = m.renewCert(ctx, req)
-			if err != nil {
-				m.Notifier.error(req.Hosts, err.Error())
-				return nil, err
-			}
-			m.Notifier.renewed(req.Hosts)
-		}
-		req.certificate = cert
-		return cert, nil
-	}
-
-	// create a new certificate
-	cert, err = m.createCert(ctx, req)
-	if err != nil {
-		m.Notifier.error(req.Hosts, err.Error())
-		return nil, err
-	}
-	m.Notifier.created(req.Hosts)
-	req.certificate = cert
-	return cert, nil
+	}()
 }
 
-func (m *Manager) certFromStore(ctx context.Context, req *Request) (*tls.Certificate, error) {
-	resource, err := m.certificateResourceFromStore(ctx, req)
-	if err != nil {
-		return nil, err
-	}
+func (m *Manager) check() {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	cert, err := tls.X509KeyPair(resource.Certificate, resource.PrivateKey)
-	if err != nil {
-		return nil, err
+	for _, req := range m.requests {
+		m.cert(ctx, req)
 	}
-	return &cert, nil
-}
-
-func (m *Manager) certificateResourceFromStore(ctx context.Context, req *Request) (*acme.CertificateResource, error) {
-	certData, err := m.Store.Get(m.certCacheKey(req))
-	if err != nil {
-		return nil, err
-	}
-	pkData, err := m.Store.Get(m.certPKCacheKey(req))
-	if err != nil {
-		return nil, err
-	}
-	metaData, err := m.Store.Get(m.certMetaCacheKey(req))
-	if err != nil {
-		return nil, err
-	}
-	resource := &acme.CertificateResource{}
-	if err := json.Unmarshal(metaData, resource); err != nil {
-		return nil, err
-	}
-	resource.Certificate = certData
-	resource.PrivateKey = pkData
-	return resource, nil
-}
-
-func (m *Manager) putCertificateResourceInStore(ctd context.Context, req *Request, resource *acme.CertificateResource) error {
-	meta, err := json.MarshalIndent(resource, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := m.Store.Put(m.certCacheKey(req), resource.Certificate); err != nil {
-		return err
-	}
-	if err := m.Store.Put(m.certPKCacheKey(req), resource.PrivateKey); err != nil {
-		return err
-	}
-	return m.Store.Put(m.certMetaCacheKey(req), meta)
-}
-
-// createCert creates a certificate and stores it or returns an error
-func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
-	log.Println("[autocert] creating certificate", req.Hosts)
-	if err := m.getLock(req.hostHash); err != nil {
-		return nil, err
-	}
-	defer m.releaseLock(req.hostHash)
-	user, err := m.user(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	client, err := m.client(ctx, req, user)
-	if err != nil {
-		return nil, err
-	}
-	resource, err := client.ObtainCertificate(req.Hosts, true, nil, false)
-	if err != nil {
-		log.Println("[autocert] error obtaining certificate", err)
-		return nil, err
-	}
-	if err := m.putCertificateResourceInStore(ctx, req, resource); err != nil {
-		return nil, err
-	}
-	cert, err := tls.X509KeyPair(resource.Certificate, resource.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	return &cert, nil
-}
-
-// renewCert renews a certificate and stores it or returns an error
-// TODO: instead of using the first host as the key, use the hostHash (and maybe the first one to make it easier to debug)
-func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
-	log.Println("[autocert] renewing certificate", req.Hosts)
-	if err := m.getLock(req.hostHash); err != nil {
-		return nil, err
-	}
-	defer m.releaseLock(req.hostHash)
-	user, err := m.user(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	client, err := m.client(ctx, req, user)
-	if err != nil {
-		return nil, err
-	}
-	resource, err := m.certificateResourceFromStore(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	newResource, err := client.RenewCertificate(*resource, true, false)
-	if err != nil {
-		log.Println("[autocert] error renewing certificate", err)
-		return nil, err
-	}
-	if err := m.putCertificateResourceInStore(ctx, req, newResource); err != nil {
-		return nil, err
-	}
-	cert, err := tls.X509KeyPair(newResource.Certificate, newResource.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	return &cert, nil
 }
 
 func (m *Manager) client(ctx context.Context, req *Request, user acme.User) (*acme.Client, error) {
@@ -375,101 +178,6 @@ func (m *Manager) client(ctx context.Context, req *Request, user acme.User) (*ac
 	}
 	req.client = client
 	return client, nil
-}
-
-// user finds or creates a new user private key
-func (m *Manager) user(ctx context.Context, req *Request) (acme.User, error) {
-	email := m.Email // TODO: allow per-request Email addresses
-	m.usersMu.Lock()
-	defer m.usersMu.Unlock()
-	if m.users == nil {
-		m.users = map[string]acme.User{}
-	}
-	if m.users[email] != nil {
-		return m.users[email], nil
-	}
-	user, err := m.userFromStore(ctx, email)
-	if err != nil && err != kvstore.ErrCacheMiss {
-		return nil, err
-	}
-	if err == nil {
-		m.users[email] = user
-		return user, nil
-	}
-	user, err = m.createUser(ctx, email)
-	if err != nil {
-		return nil, err
-	}
-	m.users[email] = user
-	return user, nil
-}
-
-func (m *Manager) userFromStore(ctx context.Context, email string) (acme.User, error) {
-	data, err := m.Store.Get(m.userCacheKey(email))
-	if err != nil {
-		return nil, err
-	}
-	privateKey, err := unmarshalPrivateKey(data)
-	if err != nil {
-		return nil, err
-	}
-	data, err = m.Store.Get(m.userAccountCacheKey(email))
-	if err != nil {
-		return nil, err
-	}
-	user := &User{}
-	err = json.Unmarshal(data, user)
-	if err != nil {
-		return nil, err
-	}
-	user.privateKey = privateKey
-	return user, nil
-}
-
-func (m *Manager) createUser(ctx context.Context, email string) (acme.User, error) {
-	log.Println("[autocert] creating user", email)
-	if err := m.getLock(email); err != nil {
-		return nil, err
-	}
-	defer m.releaseLock(email)
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, err
-	}
-	user := &User{Email: email, privateKey: privateKey}
-
-	client, err := acme.NewClient(m.Endpoint, user, acme.RSA2048) // test EC256
-	if err != nil {
-		return nil, err
-	}
-	reg, err := client.Register(true) // FIXME: hardcoded acceptance
-	if err != nil {
-		return nil, err
-	}
-	user.Registration = reg
-	// if m.Prompt(reg.TosURL) {
-	// 	if err := client.AgreeToTOS(); err != nil {
-	// 		return nil, err
-	// 	}
-	// } else {
-	// 	return nil, errors.New("terms of service were rejected")
-	// }
-	data, err := marshalPrivateKey(user.GetPrivateKey())
-	if err != nil {
-		return nil, err
-	}
-	err = m.Store.Put(m.userCacheKey(email), data)
-	if err != nil {
-		return nil, err
-	}
-	account, err := json.MarshalIndent(user, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	if err := m.Store.Put(m.userAccountCacheKey(email), []byte(account)); err != nil {
-		return nil, err
-	}
-	return user, nil
 }
 
 func (m *Manager) expiring(cert *tls.Certificate) bool {
@@ -512,30 +220,6 @@ func (m *Manager) renewBefore() time.Duration {
 func (m *Manager) cacheKeyPrefix() string {
 	url, _ := url.Parse(m.Endpoint)
 	return path.Join("autocert", url.Host)
-}
-
-func (m *Manager) certCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.hostHash, req.hostHash+".crt")
-}
-
-func (m *Manager) certPKCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.hostHash, req.hostHash+".key")
-}
-
-func (m *Manager) certMetaCacheKey(req *Request) string {
-	return path.Join(m.cacheKeyPrefix(), req.hostHash, req.hostHash+".json")
-}
-
-func (m *Manager) certChallengeCacheKey(host string) string {
-	return path.Join(m.cacheKeyPrefix(), "challenges", host+".auth")
-}
-
-func (m *Manager) userCacheKey(email string) string {
-	return path.Join(m.cacheKeyPrefix(), email, email+".key")
-}
-
-func (m *Manager) userAccountCacheKey(email string) string {
-	return path.Join(m.cacheKeyPrefix(), email, email+".json")
 }
 
 func (m *Manager) getLock(key string) error {
@@ -585,63 +269,6 @@ func (m *Manager) provider(ctx context.Context, req *Request) (acme.ChallengePro
 	}
 	req.provider = &httpProvider{Manager: m}
 	return req.provider, nil
-}
-
-func handleHTTPRedirect(w http.ResponseWriter, r *http.Request) {
-	log.Println("[autocert]", "handleHTTPRedirect", r.Method, r.Host, r.URL.Path)
-	if r.Method != "GET" && r.Method != "HEAD" {
-		http.Error(w, "Use HTTPS", http.StatusBadRequest)
-		return
-	}
-	target := "https://" + stripPort(r.Host) + r.URL.RequestURI()
-	http.Redirect(w, r, target, http.StatusFound)
-}
-
-func stripPort(hostport string) string {
-	host, _, err := net.SplitHostPort(hostport)
-	if err != nil {
-		return hostport
-	}
-	return net.JoinHostPort(host, "443")
-}
-
-func marshalPrivateKey(key crypto.PrivateKey) ([]byte, error) {
-	var pemType string
-	var keyBytes []byte
-	switch key := key.(type) {
-	case *ecdsa.PrivateKey:
-		var err error
-		pemType = "EC"
-		keyBytes, err = x509.MarshalECPrivateKey(key)
-		if err != nil {
-			return nil, err
-		}
-	case *rsa.PrivateKey:
-		pemType = "RSA"
-		keyBytes = x509.MarshalPKCS1PrivateKey(key)
-	}
-	pemKey := pem.Block{Type: pemType + " PRIVATE KEY", Bytes: keyBytes}
-	return pem.EncodeToMemory(&pemKey), nil
-}
-
-func unmarshalPrivateKey(keyBytes []byte) (crypto.PrivateKey, error) {
-	keyBlock, _ := pem.Decode(keyBytes)
-	switch keyBlock.Type {
-	case "RSA PRIVATE KEY":
-		return x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
-	case "EC PRIVATE KEY":
-		return x509.ParseECPrivateKey(keyBlock.Bytes)
-	}
-	return nil, errors.New("unknown private key type")
-}
-
-func expiry(cert *tls.Certificate) (time.Time, error) {
-	x, err := x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return time.Now(), err
-	}
-
-	return x.NotAfter, nil
 }
 
 // hash sorts and hashes all the hostnames so we get a consistent unique identifier

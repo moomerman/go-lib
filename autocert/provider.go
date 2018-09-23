@@ -12,7 +12,7 @@ import (
 type DNSProviderName string
 
 // DNSimpleProvider the DNSimple provider
-const DNSimpleProvider DNSProviderName = "dnsimple"
+// const DNSimpleProvider DNSProviderName = "dnsimple"
 
 // DNSMadeEasyProvider the DNSMadeEasy provider
 const DNSMadeEasyProvider DNSProviderName = "dnsmadeeasy"

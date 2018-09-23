@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"sync"
 
+	"golang.org/x/crypto/ocsp"
+
 	"github.com/xenolf/lego/acme"
 )
 
@@ -22,5 +24,10 @@ type Request struct {
 	providerMu sync.Mutex
 	provider   acme.ChallengeProvider
 
+	ocspMu sync.Mutex
+	ocsp   *ocsp.Response
+
 	hostHash string
+
+	error error
 }
