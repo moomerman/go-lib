@@ -103,6 +103,9 @@ func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.C
 
 	wsproxy := &wsutil.ReverseProxy{
 		Director: director,
+		TLSClientConfig: &tls.Config{
+			RootCAs: rootCAs,
+		},
 	}
 
 	return &ReverseProxy{
