@@ -39,6 +39,13 @@ func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.C
 			req.Host = hostname
 		}
 		req.URL.Scheme = target.Scheme
+		if req.Header.Get("Connection") == "Upgrade" && req.Header.Get("Upgrade") == "websocket" {
+			if req.URL.Scheme == "http" {
+				req.URL.Scheme = "ws"
+			} else {
+				req.URL.Scheme = "wss"
+			}
+		}
 		req.URL.Host = target.Host
 		req.URL.Path = singleJoiningSlash(target.Path, req.URL.Path)
 		if targetQuery == "" || req.URL.RawQuery == "" {
@@ -50,6 +57,7 @@ func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.C
 			// explicitly disable User-Agent so it's not set to default value
 			req.Header.Set("User-Agent", "")
 		}
+		log.Println("[rproxy] director", "req.URL:", req.URL)
 	}
 
 	rootCAs, _ := x509.SystemCertPool()
