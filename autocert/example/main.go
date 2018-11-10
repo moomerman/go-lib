@@ -28,19 +28,26 @@ func main() {
 	m.Add(&autocert.Request{
 		Hosts:           []string{"letest.moocode.com"},
 		DNSProviderName: autocert.DNSMadeEasyProvider,
-		DNSCredentials:  []string{"36875f3e-c72a-464d-8c60-1da2647a6ef9", "3458659f-b53b-4f79-9297-39df7e89ba49"},
+		DNSCredentials:  []string{"30f88aec-0a67-4787-9e58-192645db511a", "7175bbce-0c13-4ab0-b5b6-184f2149663f"},
 	})
+
+	// HTTP verification
+	m.Add(&autocert.Request{
+		Hosts: []string{"letest.moocode.com", "letest2.moocode.com"},
+	})
+
+	// m.RenewBefore = 2158 * time.Hour // 90 days, to force a renewal
 
 	go func() {
 		for {
-			log.Println(m.Status())
+			log.Printf("%+v\n", m.Status())
 			time.Sleep(5 * time.Second)
 		}
 	}()
 
 	go http.ListenAndServe(":8080", m.HTTPHandler(nil))
 	// m.Run() // optional blocking call to ensure all certificates are issued before starting https server
-	// go m.Monitor() // optionally renew certificates in the background
+	m.Monitor() // optionally renew certificates in the background
 	s := &http.Server{
 		Addr:      ":4343",
 		TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
