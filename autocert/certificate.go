@@ -54,6 +54,7 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 		return nil, err
 	}
 	if err == nil {
+		req.certificate = cert
 		if m.expiring(cert) {
 			cert, err = m.renewCert(ctx, req)
 			if err != nil {
