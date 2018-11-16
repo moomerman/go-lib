@@ -171,10 +171,10 @@ func (m *Manager) client(ctx context.Context, req *Request, user acme.User) (*ac
 	}
 	if req.DNSProviderName != "" {
 		client.SetChallengeProvider(acme.DNS01, provider)
-		client.ExcludeChallenges([]acme.Challenge{acme.HTTP01})
+		client.ExcludeChallenges([]acme.Challenge{acme.HTTP01, acme.TLSALPN01})
 	} else {
 		client.SetChallengeProvider(acme.HTTP01, provider)
-		client.ExcludeChallenges([]acme.Challenge{acme.DNS01})
+		client.ExcludeChallenges([]acme.Challenge{acme.DNS01, acme.TLSALPN01})
 	}
 	req.client = client
 	return client, nil
