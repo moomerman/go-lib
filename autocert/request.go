@@ -3,6 +3,7 @@ package autocert
 import (
 	"crypto/tls"
 	"sync"
+	"time"
 
 	"golang.org/x/crypto/ocsp"
 
@@ -29,5 +30,6 @@ type Request struct {
 
 	hostHash string
 
-	error error
+	lastErrorAt time.Time
+	error       error
 }

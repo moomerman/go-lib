@@ -37,10 +37,8 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 				log.Println("[autocert] certificate has definitely expired, renewing")
 				cert, err := m.renewCert(ctx, req)
 				if err != nil {
-					m.Notifier.error(req.Hosts, err.Error())
 					return nil, err
 				}
-				m.Notifier.renewed(req.Hosts)
 				req.certificate = cert
 			}
 		}
@@ -59,10 +57,8 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 		if m.expiring(cert) {
 			cert, err = m.renewCert(ctx, req)
 			if err != nil {
-				m.Notifier.error(req.Hosts, err.Error())
 				return nil, err
 			}
-			m.Notifier.renewed(req.Hosts)
 		}
 		req.certificate = cert
 		if err := m.stapleOCSP(req, nil); err != nil {
@@ -74,10 +70,8 @@ func (m *Manager) cert(ctx context.Context, req *Request) (*tls.Certificate, err
 	// create a new certificate
 	cert, err = m.createCert(ctx, req)
 	if err != nil {
-		m.Notifier.error(req.Hosts, err.Error())
 		return nil, err
 	}
-	m.Notifier.created(req.Hosts)
 	req.certificate = cert
 	if err := m.stapleOCSP(req, nil); err != nil {
 		log.Println("[autocert]", "error with OCSP staple", err)
@@ -136,6 +130,10 @@ func (m *Manager) putCertificateResourceInStore(ctd context.Context, req *Reques
 
 // createCert creates a certificate and stores it or returns an error
 func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
+	if req.error != nil && req.lastErrorAt.After(time.Now().Add(-1*time.Hour)) {
+		log.Println("[autocert] create cert due to previous error, will try later", req.Hosts, req.error.Error())
+		return nil, errors.New("recent errors so waiting for cooldown")
+	}
 	log.Println("[autocert] creating certificate", req.Hosts)
 	if err := m.getLock(req.hostHash); err != nil {
 		return nil, err
@@ -152,7 +150,9 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 	resource, err := client.ObtainCertificate(req.Hosts, true, nil, true)
 	if err != nil {
 		log.Println("[autocert] error obtaining certificate", err)
+		req.lastErrorAt = time.Now()
 		req.error = err
+		m.Notifier.error(req.Hosts, err.Error())
 		return nil, err
 	}
 	if err := m.putCertificateResourceInStore(ctx, req, resource); err != nil {
@@ -162,12 +162,17 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 	if err != nil {
 		return nil, err
 	}
+	m.Notifier.created(req.Hosts)
 	return &cert, nil
 }
 
 // renewCert renews a certificate and stores it or returns an error
 // TODO: instead of using the first host as the key, use the hostHash (and maybe the first one to make it easier to debug)
 func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate, error) {
+	if req.error != nil && req.lastErrorAt.After(time.Now().Add(-1*time.Hour)) {
+		log.Println("[autocert] skipping renewal due to previous error, will try later", req.Hosts, req.error.Error())
+		return req.certificate, nil
+	}
 	log.Println("[autocert] renewing certificate", req.Hosts)
 	if err := m.getLock(req.hostHash); err != nil {
 		return nil, err
@@ -189,6 +194,11 @@ func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate
 	if err != nil {
 		log.Println("[autocert] error renewing certificate", err)
 		req.error = err
+		req.lastErrorAt = time.Now()
+		m.Notifier.error(req.Hosts, err.Error())
+		if req.certificate != nil {
+			return req.certificate, nil
+		}
 		return nil, err
 	}
 	if err := m.putCertificateResourceInStore(ctx, req, newResource); err != nil {
@@ -198,6 +208,7 @@ func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate
 	if err != nil {
 		return nil, err
 	}
+	m.Notifier.renewed(req.Hosts)
 	return &cert, nil
 }
 
