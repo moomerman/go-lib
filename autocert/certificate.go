@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/moomerman/go-lib/kvstore"
-	"github.com/xenolf/lego/acme"
+	"github.com/xenolf/lego/certificate"
 )
 
 // cert returns an existing certificate or requests a new one
@@ -93,7 +93,7 @@ func (m *Manager) certFromStore(ctx context.Context, req *Request) (*tls.Certifi
 	return &cert, nil
 }
 
-func (m *Manager) certificateResourceFromStore(ctx context.Context, req *Request) (*acme.CertificateResource, error) {
+func (m *Manager) certificateResourceFromStore(ctx context.Context, req *Request) (*certificate.Resource, error) {
 	certData, err := m.Store.Get(m.certCacheKey(req))
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (m *Manager) certificateResourceFromStore(ctx context.Context, req *Request
 	if err != nil {
 		return nil, err
 	}
-	resource := &acme.CertificateResource{}
+	resource := &certificate.Resource{}
 	if err := json.Unmarshal(metaData, resource); err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (m *Manager) certificateResourceFromStore(ctx context.Context, req *Request
 	return resource, nil
 }
 
-func (m *Manager) putCertificateResourceInStore(ctd context.Context, req *Request, resource *acme.CertificateResource) error {
+func (m *Manager) putCertificateResourceInStore(ctd context.Context, req *Request, resource *certificate.Resource) error {
 	meta, err := json.MarshalIndent(resource, "", "  ")
 	if err != nil {
 		return err
@@ -148,7 +148,13 @@ func (m *Manager) createCert(ctx context.Context, req *Request) (*tls.Certificat
 	if err != nil {
 		return nil, err
 	}
-	resource, err := client.ObtainCertificate(req.Hosts, true, nil, true)
+	request := certificate.ObtainRequest{
+		Domains:    req.Hosts,
+		Bundle:     true,
+		PrivateKey: nil,
+		MustStaple: true,
+	}
+	resource, err := client.Certificate.Obtain(request)
 	if err != nil {
 		log.Println("[autocert] error obtaining certificate", err)
 		req.lastErrorAt = time.Now()
@@ -191,7 +197,8 @@ func (m *Manager) renewCert(ctx context.Context, req *Request) (*tls.Certificate
 	if err != nil {
 		return nil, err
 	}
-	newResource, err := client.RenewCertificate(*resource, true, true)
+
+	newResource, err := client.Certificate.Renew(*resource, true, true)
 	if err != nil {
 		log.Println("[autocert] error renewing certificate", err)
 		req.error = err

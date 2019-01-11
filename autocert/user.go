@@ -10,13 +10,15 @@ import (
 	"path"
 
 	"github.com/moomerman/go-lib/kvstore"
-	"github.com/xenolf/lego/acme"
+	"github.com/xenolf/lego/certcrypto"
+	"github.com/xenolf/lego/lego"
+	"github.com/xenolf/lego/registration"
 )
 
 // User implements the required interface for acme
 type User struct {
 	Email        string
-	Registration *acme.RegistrationResource
+	Registration *registration.Resource
 	privateKey   crypto.PrivateKey
 }
 
@@ -26,7 +28,7 @@ func (u *User) GetEmail() string {
 }
 
 // GetRegistration returns the user registration
-func (u *User) GetRegistration() *acme.RegistrationResource {
+func (u *User) GetRegistration() *registration.Resource {
 	return u.Registration
 }
 
@@ -36,12 +38,12 @@ func (u *User) GetPrivateKey() crypto.PrivateKey {
 }
 
 // user finds or creates a new user private key
-func (m *Manager) user(ctx context.Context, req *Request) (acme.User, error) {
+func (m *Manager) user(ctx context.Context, req *Request) (registration.User, error) {
 	email := m.Email // TODO: allow per-request Email addresses
 	m.usersMu.Lock()
 	defer m.usersMu.Unlock()
 	if m.users == nil {
-		m.users = map[string]acme.User{}
+		m.users = map[string]registration.User{}
 	}
 	if m.users[email] != nil {
 		return m.users[email], nil
@@ -62,7 +64,7 @@ func (m *Manager) user(ctx context.Context, req *Request) (acme.User, error) {
 	return user, nil
 }
 
-func (m *Manager) userFromStore(ctx context.Context, email string) (acme.User, error) {
+func (m *Manager) userFromStore(ctx context.Context, email string) (registration.User, error) {
 	data, err := m.Store.Get(m.userCacheKey(email))
 	if err != nil {
 		return nil, err
@@ -84,7 +86,7 @@ func (m *Manager) userFromStore(ctx context.Context, email string) (acme.User, e
 	return user, nil
 }
 
-func (m *Manager) createUser(ctx context.Context, email string) (acme.User, error) {
+func (m *Manager) createUser(ctx context.Context, email string) (registration.User, error) {
 	log.Println("[autocert] creating user", email)
 	if err := m.getLock(email); err != nil {
 		return nil, err
@@ -96,11 +98,14 @@ func (m *Manager) createUser(ctx context.Context, email string) (acme.User, erro
 	}
 	user := &User{Email: email, privateKey: privateKey}
 
-	client, err := acme.NewClient(m.Endpoint, user, acme.RSA2048) // test EC256
+	config := lego.NewConfig(user)
+	config.CADirURL = m.Endpoint
+	config.Certificate.KeyType = certcrypto.RSA2048
+	client, err := lego.NewClient(config)
 	if err != nil {
 		return nil, err
 	}
-	reg, err := client.Register(true) // FIXME: hardcoded acceptance
+	reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true}) // FIXME: hardcoded acceptance
 	if err != nil {
 		return nil, err
 	}

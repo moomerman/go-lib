@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xenolf/lego/challenge"
+	"github.com/xenolf/lego/lego"
 	"golang.org/x/crypto/ocsp"
-
-	"github.com/xenolf/lego/acme"
 )
 
 // Request holds all the details required to request a certificate
@@ -20,10 +20,10 @@ type Request struct {
 	certificate   *tls.Certificate
 
 	clientMu sync.Mutex
-	client   *acme.Client
+	client   *lego.Client
 
 	providerMu sync.Mutex
-	provider   acme.ChallengeProvider
+	provider   challenge.Provider
 
 	ocspMu sync.Mutex
 	ocsp   *ocsp.Response

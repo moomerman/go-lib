@@ -9,7 +9,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/xenolf/lego/acme"
 	"golang.org/x/crypto/ocsp"
 )
 
@@ -50,7 +49,17 @@ func (m *Manager) stapleOCSP(request *Request, pemBundle []byte) error {
 
 	if ocspResp == nil || len(ocspBytes) == 0 {
 		log.Printf("[autocert] fetching new OCSP for %v\n", request.Hosts)
-		ocspBytes, ocspResp, ocspErr = acme.GetOCSPForCert(pemBundle)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		user, err := m.user(ctx, request)
+		if err != nil {
+			return err
+		}
+		client, err := m.client(ctx, request, user)
+		if err != nil {
+			return err
+		}
+		ocspBytes, ocspResp, ocspErr = client.Certificate.GetOCSP(pemBundle)
 		if ocspErr != nil {
 			// An error here is not a problem because a certificate may simply
 			// not contain a link to an OCSP server. But we should log it anyway.

@@ -16,8 +16,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xenolf/lego/certcrypto"
+
 	"github.com/moomerman/go-lib/kvstore"
-	"github.com/xenolf/lego/acme"
+	"github.com/xenolf/lego/challenge"
+	"github.com/xenolf/lego/lego"
+	"github.com/xenolf/lego/registration"
 )
 
 // Manager is a stateful certificate manager.
@@ -71,7 +75,7 @@ type Manager struct {
 	requests   []*Request
 
 	usersMu sync.Mutex
-	users   map[string]acme.User
+	users   map[string]registration.User
 }
 
 // AcceptTOS is a Manager.Prompt function that always returns true to
@@ -155,13 +159,17 @@ func (m *Manager) check() {
 	}
 }
 
-func (m *Manager) client(ctx context.Context, req *Request, user acme.User) (*acme.Client, error) {
+func (m *Manager) client(ctx context.Context, req *Request, user registration.User) (*lego.Client, error) {
 	req.clientMu.Lock()
 	defer req.clientMu.Unlock()
 	if req.client != nil {
 		return req.client, nil
 	}
-	client, err := acme.NewClient(m.Endpoint, user, acme.RSA2048) // test EC256
+	config := lego.NewConfig(user)
+	config.CADirURL = m.Endpoint
+	config.Certificate.KeyType = certcrypto.RSA2048
+
+	client, err := lego.NewClient(config)
 	if err != nil {
 		return nil, err
 	}
@@ -170,11 +178,9 @@ func (m *Manager) client(ctx context.Context, req *Request, user acme.User) (*ac
 		return nil, err
 	}
 	if req.DNSProviderName != "" {
-		client.SetChallengeProvider(acme.DNS01, provider)
-		client.ExcludeChallenges([]acme.Challenge{acme.HTTP01, acme.TLSALPN01})
+		client.Challenge.SetDNS01Provider(provider)
 	} else {
-		client.SetChallengeProvider(acme.HTTP01, provider)
-		client.ExcludeChallenges([]acme.Challenge{acme.DNS01, acme.TLSALPN01})
+		client.Challenge.SetHTTP01Provider(provider)
 	}
 	req.client = client
 	return client, nil
@@ -253,7 +259,7 @@ func (m *Manager) releaseLock(key string) error {
 	return m.Store.Delete(key)
 }
 
-func (m *Manager) provider(ctx context.Context, req *Request) (acme.ChallengeProvider, error) {
+func (m *Manager) provider(ctx context.Context, req *Request) (challenge.Provider, error) {
 	req.providerMu.Lock()
 	defer req.providerMu.Unlock()
 	if req.provider != nil {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/xenolf/lego/acme"
+	"github.com/xenolf/lego/challenge"
 	"github.com/xenolf/lego/providers/dns/dnsmadeeasy"
 )
 
@@ -18,17 +18,17 @@ type DNSProviderName string
 const DNSMadeEasyProvider DNSProviderName = "dnsmadeeasy"
 
 // getDNSProvider returns an acme Provider for the given DNSProviderName
-func getDNSProvider(name DNSProviderName, credentials []string) (acme.ChallengeProvider, error) {
+func getDNSProvider(name DNSProviderName, credentials []string) (challenge.Provider, error) {
 	var err error
-	var provider acme.ChallengeProvider
+	var provider challenge.Provider
 
 	switch name {
 	case "dnsmadeeasy":
-		provider, err = dnsmadeeasy.NewDNSProviderCredentials(
-			"https://api.dnsmadeeasy.com/V2.0",
-			credentials[0],
-			credentials[1],
-		)
+		config := dnsmadeeasy.NewDefaultConfig()
+		config.BaseURL = "https://api.dnsmadeeasy.com/V2.0"
+		config.APIKey = credentials[0]
+		config.APISecret = credentials[1]
+		provider, err = dnsmadeeasy.NewDNSProviderConfig(config)
 	// case "dnsimple":
 	// 	provider, err = dnsimple.NewDNSProviderCredentials(
 	// 		credentials[0],
