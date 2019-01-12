@@ -151,8 +151,8 @@
   version = "v1.1.2"
 
 [[projects]]
-  branch = "fix/oscp"
-  digest = "1:6cf11fa41820b7491db248886cd894fe92bc62ab9110da5b997f8ce5dd11b0e9"
+  branch = "master"
+  digest = "1:0839bd7fa1ee64d0aab1c4db4c051dc3f0dc80cbc591526136522e10b8235b6a"
   name = "github.com/xenolf/lego"
   packages = [
     "acme",
@@ -176,8 +176,7 @@
     "registration",
   ]
   pruneopts = "UT"
-  revision = "914fcc74f848cd9d1f09941d7ddee3bd8c896a30"
-  source = "https://github.com/ldez/lego"
+  revision = "ec6c22d70b19d1e26203d2189c1594fe6508b3b4"
 
 [[projects]]
   branch = "master"

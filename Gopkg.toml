@@ -39,8 +39,7 @@
 
 [[constraint]]
   name = "github.com/xenolf/lego"
-  branch = "fix/oscp"
-  source = "https://github.com/ldez/lego"
+  branch = "master"
 
 [[constraint]]
   branch = "master"
