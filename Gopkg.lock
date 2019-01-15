@@ -154,7 +154,8 @@
   revision = "5a380f224700b8a6c4eaad048804f5bff514cb35"
 
 [[projects]]
-  digest = "1:d79a9714c125d6455145d41665a73c30e00262602499f3cb0571ca6fd713cc76"
+  branch = "master"
+  digest = "1:0839bd7fa1ee64d0aab1c4db4c051dc3f0dc80cbc591526136522e10b8235b6a"
   name = "github.com/xenolf/lego"
   packages = [
     "acme",
@@ -178,8 +179,7 @@
     "registration",
   ]
   pruneopts = "UT"
-  revision = "86c9de3db61436d07de2471508067f18c16c1997"
-  version = "v2.0.1"
+  revision = "ec6c22d70b19d1e26203d2189c1594fe6508b3b4"
 
 [[projects]]
   branch = "master"
