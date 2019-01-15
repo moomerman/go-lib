@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yhat/wsutil"
+	"github.com/moomerman/go-lib/rproxy/wsutil"
 )
 
 // ReverseProxy holds the state for the HTTP ReverseProxy and Websocket Proxy
