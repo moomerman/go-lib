@@ -72,6 +72,8 @@ func NewSingleHostReverseProxy(target *url.URL) *ReverseProxy {
 
 // Function to implement the http.Handler interface.
 func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Println("[wsutil]", "ServeHTTP")
+
 	logFunc := log.Printf
 	if p.ErrorLog != nil {
 		logFunc = p.ErrorLog.Printf
@@ -80,6 +82,7 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !IsWebSocketRequest(r) {
 		http.Error(w, "Cannot handle non-WebSocket requests", 500)
 		logFunc("Received a request that was not a WebSocket request")
+		log.Println("[wsutil]", "Received a request that was not a WebSocket request")
 		return
 	}
 
@@ -121,7 +124,14 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			tlsConfig = p.TLSClientConfig
 		}
 		dial = func(network, address string) (net.Conn, error) {
-			return tls.Dial("tcp", host, tlsConfig)
+			log.Println("[wsutil]", "tlsdial")
+			conn, err := tls.Dial("tcp", host, tlsConfig)
+			if err != nil {
+				log.Println("[wsutil]", "msg=dial error", "addr="+address, "error="+err.Error())
+			} else {
+				log.Println("[wsutil]", "msg=dial", "addr="+address, "local="+conn.LocalAddr().String(), "remote="+conn.RemoteAddr().String())
+			}
+			return conn, err
 		}
 	}
 
