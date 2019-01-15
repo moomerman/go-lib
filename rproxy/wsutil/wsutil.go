@@ -72,8 +72,6 @@ func NewSingleHostReverseProxy(target *url.URL) *ReverseProxy {
 
 // Function to implement the http.Handler interface.
 func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Println("[wsutil]", "ServeHTTP")
-
 	logFunc := log.Printf
 	if p.ErrorLog != nil {
 		logFunc = p.ErrorLog.Printf
@@ -82,7 +80,6 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !IsWebSocketRequest(r) {
 		http.Error(w, "Cannot handle non-WebSocket requests", 500)
 		logFunc("Received a request that was not a WebSocket request")
-		log.Println("[wsutil]", "Received a request that was not a WebSocket request")
 		return
 	}
 
@@ -124,7 +121,6 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			tlsConfig = p.TLSClientConfig
 		}
 		dial = func(network, address string) (net.Conn, error) {
-			log.Println("[wsutil]", "tlsdial")
 			conn, err := tls.Dial("tcp", host, tlsConfig)
 			if err != nil {
 				log.Println("[wsutil]", "msg=dial error", "addr="+address, "error="+err.Error())
@@ -157,6 +153,7 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer nc.Close() // must close the underlying net connection after hijacking
 	defer d.Close()
 
+	log.Println("[wsutil]", "writing request")
 	// write the modified incoming request to the dialed connection
 	err = outreq.Write(d)
 	if err != nil {
@@ -166,6 +163,9 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	errc := make(chan error, 2)
 	cp := func(dst io.Writer, src io.Reader) {
 		_, err := io.Copy(dst, src)
+		if err != nil {
+			log.Println("[wsutil]", "io.Copy", "err", err.Error())
+		}
 		errc <- err
 	}
 	go cp(d, nc)

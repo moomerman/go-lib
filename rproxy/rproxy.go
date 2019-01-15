@@ -76,17 +76,6 @@ func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.C
 		}
 	}
 
-	dial := func(network, address string) (net.Conn, error) {
-		var d net.Dialer
-		conn, err := d.Dial(network, address)
-		if err != nil {
-			log.Println("[rproxy]", "msg=wsdial error", "addr="+address, "error="+err.Error())
-		} else {
-			log.Println("[rproxy]", "msg=wsdial", "addr="+address, "local="+conn.LocalAddr().String(), "remote="+conn.RemoteAddr().String())
-		}
-		return conn, err
-	}
-
 	transport := &myTransport{
 		transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
@@ -121,7 +110,6 @@ func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.C
 
 	wsproxy := &wsutil.ReverseProxy{
 		Director: director,
-		Dial:     dial,
 		TLSClientConfig: &tls.Config{
 			RootCAs: rootCAs,
 		},
