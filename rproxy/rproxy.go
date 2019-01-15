@@ -57,7 +57,7 @@ func NewWithTrustedCertificates(target *url.URL, hostname string, certs []*tls.C
 			// explicitly disable User-Agent so it's not set to default value
 			req.Header.Set("User-Agent", "")
 		}
-		log.Println("[rproxy] director", "req.URL:", req.URL)
+		log.Println("[rproxy] director", "req.URL:", req.URL, "req.Host", req.Host)
 	}
 
 	rootCAs, _ := x509.SystemCertPool()
@@ -147,6 +147,7 @@ type myTransport struct {
 func (t *myTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.transport.RoundTrip(req)
 	if err != nil {
+		log.Println("[rproxy]", "RoundTrip", "err", err.Error())
 		return nil, err
 	}
 	for _, hdr := range t.stripHeaders {
